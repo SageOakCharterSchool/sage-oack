@@ -169,7 +169,7 @@ class UserController extends Controller
             $data = 'Wrong Student Id';
             return response()->json(['msg' => $data], 401);
         }
-        $currentSpecialistAssigned = SpecialistStudent::select('specialist_id', 'first_name', 'last_name')
+        $currentSpecialistAssigned = SpecialistStudent::select('specialist_id', 'first_name', 'last_name','name')
             ->where('student_id', $request->studentId)
             ->where('cycle_id', $cycle->id)
             ->first();

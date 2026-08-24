@@ -21,7 +21,7 @@
     <link rel="stylesheet" href="{{ asset('admin/css/style.css') }}">
     <link rel="stylesheet" href="{{ asset('admin/css/custom.css') }}">
     {{-- filepond --}}
-    <script src="https://unpkg.com/filepond@^4/dist/filepond.js"></script>
+    {{-- <script src="https://unpkg.com/filepond@^4/dist/filepond.js"></script> --}}
     <!-- endinject -->
     <link rel="shortcut icon" href="{{ asset('admin/images/favicon.png') }}" />
     @livewireStyles
@@ -68,7 +68,7 @@
     {{-- <script src="https://unpkg.com/sweetalert/dist/sweetalert.min.js"></script> --}}
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     {{-- filepond --}}
-    <link href="https://unpkg.com/filepond@^4/dist/filepond.css" rel="stylesheet" />
+    {{-- <link href="https://unpkg.com/filepond@^4/dist/filepond.css" rel="stylesheet" /> --}}
     <!-- End custom js for this page-->
     <script src="js/jquery.cookie.js"></script>
     <script src="{{ asset('assets/js/custom.js') }}"></script>
@@ -77,6 +77,6 @@
     @stack('myStyles')
     @stack('script')
     @yield('custom_script')
-
+    @include('layouts.analytics')
 </body>
 </html>

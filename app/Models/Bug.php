@@ -16,5 +16,8 @@ class Bug extends Model
         'feedback',
         'status',
         'resolved_on',
+        'url',
+        'created_by_email',
+        'bug_type'
     ];
 }

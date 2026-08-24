@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\Redirect;
 use Illuminate\View\View;
 use App\Models\Cycle;
 use App\Models\ConsolidateMapping;
+use App\Models\ReportPermission;
 
 class BuildReportController extends Controller
 {
@@ -33,12 +34,12 @@ class BuildReportController extends Controller
     {
         $report = new Report();
         $cycle = Cycle::getCurrentCycle();
-        $report = Report::where('cycle_id', $cycle->id)
-                    ->first();
-        if ($report) {
-            return Redirect::route('build-reports.index')
-                ->with('error', 'Already have a report for this cycle');
-        }
+        // $report = Report::where('cycle_id', $cycle->id)
+        //             ->first();
+        // if ($report) {
+        //     return Redirect::route('build-reports.index')
+        //         ->with('error', 'Already have a report for this cycle');
+        // }
         $tmpVariables = ConsolidateMapping::getOnlyConsolidatedTableFields();
         $siteVariables = [];
         foreach ($tmpVariables as $row) {
@@ -61,6 +62,8 @@ class BuildReportController extends Controller
         return Redirect::route('build-reports.index')
             ->with('success', 'Report created successfully.');
     }
+
+
 
     /**
      * Display the specified resource.
@@ -120,5 +123,11 @@ class BuildReportController extends Controller
 
         return Redirect::route('build-reports.index')
             ->with('success', 'Report deleted successfully');
+    }
+
+    public function updatePermissions(Request $request) {
+        ReportPermission::saveReportPermissions($request);
+        $data = ['message' => 'Permissions Updated'];
+        return response()->json($data, 200);
     }
 }

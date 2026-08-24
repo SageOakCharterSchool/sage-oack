@@ -4,6 +4,7 @@
 namespace App\Helpers;
 use Illuminate\Http\Request;
 use App\Models\LogActivity as LogActivityModel;
+use Illuminate\Support\Facades\Log;
 
 class LogActivity
 {
@@ -20,6 +21,7 @@ class LogActivity
             $log['agent'] = \Request::header('user-agent');
             $log['user_id'] = auth()->check() ? auth()->user()->id : 1;
             LogActivityModel::create($log);
+            Log::info("message: " . $subject . " by " . $log['user_id']);
         //}
     }
 

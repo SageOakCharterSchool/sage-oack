@@ -28,6 +28,9 @@ class HomeController extends Controller
             $data = [
                 'app' => env('APP_NAME'),
                 'feedback' => $request->feedback,
+                'url' => $request->url,
+                'bug_type' => $request->bug_type,
+                'created_by_email' => $request->reporter_email,
             ];
             $bugInfo = Bug::create($data);
 

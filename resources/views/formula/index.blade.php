@@ -21,6 +21,10 @@
                                     data-placement="left">
                                     {{ __('Create New') }}
                                 </a>
+                                <a href="{{ route('equivalences.index') }}" class="btn btn-info btn-sm float-right"
+                                    data-placement="left">
+                                    {{ __('Equivalences') }}
+                                </a>
                             </div>
                         </div>
                     </div>

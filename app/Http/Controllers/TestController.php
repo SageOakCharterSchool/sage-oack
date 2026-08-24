@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Helpers\JMHelper;
+use App\Jobs\GenerateExcelReport;
 use Illuminate\Support\Facades\Mail;
 use App\Mail\HelloEmail;
 use App\Models\Attendance;
@@ -13,13 +14,19 @@ use App\Models\Cycle;
 use App\Models\StudentList;
 use Illuminate\Http\Request;
 use App\Models\Consolidate3;
+use App\Models\ConsolidateColor;
 use App\Models\ConsolidateMapping;
 use App\Models\FileUploads;
 use App\Models\Formula;
+use App\Models\MasterTables;
 use App\Models\MultiTableFields;
 use App\Models\StudentAccounts;
 use LaracraftTech\LaravelDynamicModel\DynamicModel;
 use LaracraftTech\LaravelDynamicModel\DynamicModelFactory;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
+use Intervention\Image\Laravel\Facades\Image;
+use Illuminate\Support\Str;
 
 
 class TestController extends Controller
@@ -27,33 +34,221 @@ class TestController extends Controller
     public function __construct()
     {
         if (getenv("APP_ENV") != "local") {
-            die("No soup for you...");
+            //die("No soup for you...");
         }
     }
 
+    public function testTeacherAssignment() {
+        $cycleId=null;
+        if (!$cycleId) {
+            $cycle = Cycle::getCurrentCycle();
+            $cycleId = $cycle->id;
+        }
+        $time1 = time();
+        Log::info("Reassign teachers start ");
+        set_time_limit(0);
+        ini_set('memory_limit','-1');
+        $table = MasterTables::getTableId('teacher_students');
+        $id1 = $table->id;
+        $table = MasterTables::getTableId('tutor');
+        $id2 = $table->id;
+        $tablesToSkip = [$id1, $id2];
+
+            // if (in_array($this->tableId, $tablesToSkip)) {
+            //     return;
+            // }
+
+            //dd($table);
+        $tempTableName = "consolidated_cycle_" . $cycleId;
+        $tempTableModel = app(DynamicModelFactory::class)->create(DynamicModel::class, $tempTableName);
+
+        $teacherRows = MultiTableFields::select('teacher_id', 'student_id')
+            ->where('cycle_id', $cycleId)
+            ->where("table_id", $id1)
+            ->groupBy('teacher_id','student_id')
+            ->get();
+
+        foreach ($teacherRows as $teacherRow) {
+
+                MultiTableFields::where('cycle_id', $cycleId)
+                    ->whereNotIn("table_id", $tablesToSkip)
+                    ->where("student_id", $teacherRow->student_id)
+                    ->where("teacher_id", 0)
+                    ->update([
+                        'teacher_id' => $teacherRow->teacher_id
+                    ]);
+                $tempTableModel->where("student_id", $teacherRow->student_id)
+                            ->where("teacher_id", 0)
+                                ->update([
+                                    'teacher_id' => $teacherRow->teacher_id
+                                ]);
+            }
+            $time2 = time();
+            Log::info("Reassign teachers completed " . ($time2 - $time1) . "ms");
+    }
+
+    public function testFormulas() {
+        ConsolidateMapping::calculateFormulasResult();
+       exit;
+        //ConsolidateMapping::buildConsolidated();
+        //exit;
+        $cycle = Cycle::getCurrentCycle();
+        $formulaId = 159;
+
+        $studentId = 6081670822;
+
+
+        $formulaInfo = Formula::where("id", $formulaId)->first();
+
+        $fields = ConsolidateMapping::where("cycle_id", $cycle->id)->orderBy('screen_sort')->get();
+        $table = MasterTables::getTableId('student_accounts');
+        //dd($table->id,$cycle->id,$studentId,$formulaInfo);
+        $studentAccountRecord = MultiTableFields::select('teacher_id', 'student_id')
+            ->where("cycle_id", $cycle->id)
+            ->where('table_id', $table->id)
+            ->where('student_id', $studentId)
+            ->groupBy('teacher_id', 'student_id')
+            // ->take(50)
+            ->first();
+            //dd($studentAccountRecord);
+        if (!$studentAccountRecord)  {
+            die("No records");
+        }
+        $data = [];
+        $data['cycle_id'] = $cycle->id;
+        $data['teacher_id'] = $studentAccountRecord->teacher_id;
+        $data['student_id'] = $studentAccountRecord->student_id;
+        $tempTableName = "consolidated_cycle_" . $cycle->id;
+        $tempTableModel = app(DynamicModelFactory::class)->create(DynamicModel::class, $tempTableName);
+        $consolidatedRow = $tempTableModel->where("cycle_id", $cycle->id)
+                ->where('student_id', $studentAccountRecord->student_id)
+                ->get()
+                ->toArray();
+        //dd($data);
+        //dd($formulaInfo,$consolidatedRow[0]);
+        $consolidatedRowToPass[$studentId] = $consolidatedRow[0];
+        //dd($consolidatedRowToPass);
+        $equivalences = Consolidate3::columnACADEquivalences();
+        $result = Formula::formulaParsing($formulaId, $formulaInfo, $studentAccountRecord, $cycle, $data, $consolidatedRowToPass, null,$equivalences);
+
+        dd($result);
+    }
     public function testMe(Request $request) {
-        //exit();
+        exit;
+        $random = Str::random(40);
+        $imageUrl = file_get_contents("https://picsum.photos/200/300");
+        //echo("Image URL " . $imageUrl) . "<br>";
+        $image = Image::read($imageUrl);
+        $imageName = "test_" . $random . ".jpg";
+        echo ("Image Name " . $imageName)  . "<br>";;
+        try {
+            $path = Storage::disk('s3')->put('sip-resources/'. $imageName, $imageUrl);
+            echo("S3 Path1 " . $path)  . "<br>";
+        } catch (\Exception $e) {
+            dd('S3 Upload 1 Error: ' . $e->getMessage());
+        }
+        try {
+            $path = Storage::disk('s3')->url($path);
+            echo("S3 Path2 " . $path)  . "<br>";
+        } catch (\Exception $e) {
+            dd('S3 Upload 2 Error: ' . $e->getMessage());
+        }
+
+        echo 'sip-resources/'. $imageName;
+        exit;
+        //test formulas
+        $this->testFormulas();
+        exit;
+
+        $cycle = Cycle::getCurrentCycle();
+        $cycleId = $cycle->id;
+        $sectionId = 0;
+        $overrideCycle = null;
+        $exportFormat = "EXCEL";
+        $return = ConsolidateMapping::generateReport($request,$sectionId, $cycleId,  $overrideCycle, $exportFormat);
+        //dd($return);
+        if (!isset($return['rows'])) {
+            session()->flash('error-message', $return['status']);
+            return redirect("/admin/consolidate-mappings");
+        }
+        $rows = $return['rows'];
+        $consolidatedBasicFields = $return['consolidatedBasicFields'];
+        $consolidatedFields = $return['consolidatedFields'];
+        $cycles = $return['cycles'];
+        $sections = $return['sections'];
+        $reportsList = $return['reportsList'];
+        $consolidateColors = ConsolidateColor::getAllColumnColors($cycleId);
+
+        // GenerateExcelReport::dispatch(
+        //     $cycleId,
+        //     $rows,
+        //     $consolidatedFields,
+        //     $consolidatedBasicFields,
+        //     $cycles,
+        //     $sections,
+        //     $sectionId,
+        //     $consolidateColors
+        // );
+
+        $job = new GenerateExcelReport(
+            $cycleId,
+                    $rows,
+                    $consolidatedFields,
+                    $consolidatedBasicFields,
+                    $cycles,
+                    $sections,
+                    $sectionId,
+                    $consolidateColors
+        );
+        // //$job->dispatch();
+        $job->handle();
+
+
+        exit;
+
+        // $formulaId = 162;
+        // $formulaInfo = Formula::where("id", $formulaId)->first();
+        // $validators = ['{Consolidated'];
+        // $return = Formula::validatePreg($formulaInfo->formula,$validators);
+        // dd($return);
+        // $validators = ['substract','subtract'];
+        // $return = Formula::validatePreg($formulaInfo,$validators);
+        // dd($return);
+        /////////
+        // preg_match('/(substract)/', strtolower($name), $matches, PREG_OFFSET_CAPTURE);
+        // //dd($matches);
+        // $processFormula = 0;
+        // if (!empty($matches)) {
+        //     $processFormula = 1;
+        // }
+
+        //ConsolidateMapping::buildConsolidated();
+        //exit;
+
+
         // get consolidated values based on formula
         $cycle = Cycle::getCurrentCycle();
         $studentId = 1005195734;
-        $formulaName = "Color CAASPP Math";
+        $formulaName = "Subtract column Y-S";
         $result = Formula::getConsolidatedValues($formulaName, $studentId,$cycle);
         dd($result);
 
 
         // verify formula
         $cycle = Cycle::getCurrentCycle();
-        $formulaId = 122;
-        $studentId = 1005195734;
+        $formulaId = 150;
+        $studentId = 8973406438;
         //$studentId = 3828430956;
         //$studentId = 1005195734;
         //$studentId = 8470039263;
 
+        $table =  MasterTables::getTableId('i_ready_reading_boy_s');
         $formulaInfo = Formula::where("id", $formulaId)->first();
         $fields = ConsolidateMapping::where("cycle_id", $cycle->id)->orderBy('screen_sort')->get();
+        //dd($table,$formulaInfo);
         $studentAccountRecord = MultiTableFields::select('teacher_id', 'student_id')
             ->where("cycle_id", $cycle->id)
-            ->where('table_id', 6)
+            ->where('table_id', $table->id)
             ->where('student_id', $studentId)
             ->groupBy('teacher_id', 'student_id')
             // ->take(50)

@@ -30,6 +30,13 @@
       </li>
 
       <li class="nav-item">
+        <a class="nav-link" href="/admin/resources">
+            <i class="mdi mdi-play-network menu-icon"></i>
+            <span class="menu-title">Resources</span>
+        </a>
+      </li>
+
+      <li class="nav-item">
         <a class="nav-link" href="/admin/specialist-students">
             <i class="mdi mdi-card-bulleted menu-icon"></i>
             <span class="menu-title">Specialist</span>
@@ -45,6 +52,9 @@
         <div class="collapse" id="auth0">
           <ul class="nav flex-column sub-menu">
             <li class="nav-item protectMe"> <a class="nav-link" href="/admin/view-students"> View Students </a></li>
+          </ul>
+          <ul class="nav flex-column sub-menu">
+            <li class="nav-item protectMe"> <a class="nav-link" href="/admin/upload-tracking-info"> Upload CB Tracking </a></li>
           </ul>
           <ul class="nav flex-column sub-menu">
             <li class="nav-item protectMe"> <a class="nav-link" href="/admin/chrome-tracking"> Chromebook Tracking </a></li>
@@ -69,6 +79,9 @@
 
       <ul class="nav flex-column sub-menu">
         <li class="nav-item"> <a class="nav-link" href="/admin/consolidate-mappings">Map Consolidate </a></li>
+      </ul>
+      <ul class="nav flex-column sub-menu">
+        <li class="nav-item"> <a class="nav-link" href="/admin/consolidate-view">View Consolidate </a></li>
       </ul>
       <ul class="nav flex-column sub-menu">
         <li class="nav-item"> <a class="nav-link" href="/admin/build-reports"> Build Reports </a></li>

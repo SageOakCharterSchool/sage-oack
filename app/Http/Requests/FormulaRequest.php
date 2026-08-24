@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests;
 
+use App\Rules\ValidateUniqueFormulaNameByCycle;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Http\Request;
 
@@ -25,9 +26,11 @@ class FormulaRequest extends FormRequest
         //dd(Request['formula_id']);
         $request = Request::capture();
         //dd($request->formula_id);
+        //dd($request->all());
         return [
 			'cycle_id' => 'required',
-			'formula_name' => 'string|unique:formulas,formula_name,'.$request->formula_id,
+			//'formula_name' => 'string|unique:formulas,formula_name,'.$request->formula_id,
+            'formula_name' => ['string','required',new ValidateUniqueFormulaNameByCycle($request->formula_name,$request->cycle_id,$request->formula_id)],
 			'formula_description' => 'string',
 			'created_by' => 'required',
 			'formula' => 'required',

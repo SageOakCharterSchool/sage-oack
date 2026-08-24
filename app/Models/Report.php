@@ -44,4 +44,18 @@ class Report extends Model
         }
     }
 
+    protected function getReportList($cycle) {
+        if (\Auth::user()->role_as == 1) {
+            $reportsList = Report::where('cycle_id',$cycle->id)->pluck('report_name','id')->all();
+        } else {
+            //\DB::enableQueryLog();
+            $reportsList = Report::join('report_permissions','reports.id','=','report_permissions.report_id')
+                    ->where('reports.cycle_id',$cycle->id)
+                    ->whereRaw("FIND_IN_SET(?,permissions) > 0" , [\Auth::user()->role_as])
+                    ->pluck('reports.report_name','reports.id');
+            //dd(\DB::getQueryLog());
+        }
+        return $reportsList;
+    }
+
 }

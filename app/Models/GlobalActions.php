@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
+use PhpOffice\PhpSpreadsheet\Spreadsheet;
 
 class GlobalActions extends Model
 {
@@ -1505,5 +1506,152 @@ class GlobalActions extends Model
             'column_u' => 'Total Early Alerts',
         ];
         return $table[$tableToShow];
+    }
+
+    protected function generateExcel($rows, $consolidatedFields, $consolidatedBasicFields, $cycles, $sections, $sectionId, $consolidateColors)
+    {
+        $spreadsheet = new Spreadsheet();
+
+        // Set document properties
+        $spreadsheet->getProperties()->setCreator('SageOak SIP')
+            ->setTitle('SIP Report Consolidated');
+
+        $i = "A";
+        $excelRow = 1;
+        foreach ($sections as $section) {
+            $spreadsheet->setActiveSheetIndex(0)
+                ->setCellValue($i . $excelRow, $section->section);
+            $spreadsheet->getActiveSheet()->getStyle($i . $excelRow)->getFill()
+                ->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)
+                ->getStartColor()->setARGB(str_replace("#", '', $section->color));
+            $i++;
+        }
+
+        $excelRow = 3;
+        $i = "A";
+        foreach ($consolidatedBasicFields as $consolidatedField) {
+            $spreadsheet->setActiveSheetIndex(0)
+                ->setCellValue($i . $excelRow, $consolidatedField[1]);
+            $i++;
+        }
+        foreach ($consolidatedFields as $k => $consolidatedField) {
+            if (!isset($consolidatedBasicFields[$k])) {
+                if (!$sectionId || $sectionId == 0) {
+                    $spreadsheet->setActiveSheetIndex(0)
+                        ->setCellValue($i . $excelRow, $consolidatedField[1]);
+                    if (isset($sections[$consolidatedField[2]])) {
+                        $spreadsheet->getActiveSheet()->getStyle($i . $excelRow)->getFill()
+                            ->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)
+                            ->getStartColor()->setARGB(str_replace("#", '', $sections[$consolidatedField[2]]->color));
+                    }
+                    $i++;
+                } else {
+                    if (isset($sections[$consolidatedField[2]])) {
+                        if ($sectionId == $consolidatedField[2]) {
+                            $spreadsheet->setActiveSheetIndex(0)
+                                ->setCellValue($i . $excelRow, $consolidatedField[1]);
+                            $spreadsheet->getActiveSheet()->getStyle($i . $excelRow)->getFill()
+                                ->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)
+                                ->getStartColor()->setARGB(str_replace("#", '', $sections[$consolidatedField[2]]->color));
+                            $i++;
+                        }
+                    }
+                }
+            }
+        }
+
+
+        foreach ($rows as $row) {
+            $i = "A";
+            $excelRow++;
+            foreach ($consolidatedBasicFields as $consolidatedField) {
+                $spreadsheet->setActiveSheetIndex(0)
+                    ->setCellValue($i . $excelRow, $row[$consolidatedField[0]]);
+                $i++;
+            }
+            //dd($consolidatedFields, $consolidatedBasicFields, $row);
+            //dd($sectionId);
+            foreach ($consolidatedFields as $k => $consolidatedField) {
+                $backgroundColor = "#ffffff";
+                $color = "#000000";
+                $borders = [
+                    'allBorders' => [
+                        'borderStyle' => \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN,
+                        'color' => ['argb' => '000000'],
+                    ],
+                ];
+                $styleArray = [
+                    'font'  => [
+                        'bold' => false,
+                        'color' => array('rgb' => str_replace("#", '', $color)),
+                        //'color' => array('rgb' => 'FF0000'),
+                        //'size'  => 15,
+                        //'name' => 'Verdana'
+                    ],
+                    'borders' => [
+                        'allBorders' => [
+                            'borderStyle' => \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN,
+                            'color' => ['argb' => '000000'],
+                        ],
+                    ]
+                ];
+                $cleanString = str_replace("\r", "", $row[$consolidatedField[0]]);
+                if (isset($consolidateColors[$consolidatedField[0]][$cleanString])) {
+                    $backgroundColor = $consolidateColors[$consolidatedField[0]][$cleanString]['background_color'];
+                    $color = $consolidateColors[$consolidatedField[0]][$cleanString]['color'];
+                    $styleArray = [
+                        'font'  => [
+                            'bold' => false,
+                            'color' => array('rgb' => str_replace("#", '', $color)),
+                            //'color' => array('rgb' => 'FF0000'),
+                            //'size'  => 15,
+                            //'name' => 'Verdana'
+                        ],
+                        'borders' => [
+                            'allBorders' => [
+                                'borderStyle' => \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN,
+                                'color' => ['argb' => '000000'],
+                            ],
+                        ]
+                    ];
+                }
+                //dd($styleArray);
+                if (!isset($consolidatedBasicFields[$k])) {
+                    if (!$sectionId || $sectionId == 0) {
+                        //dd($k,$consolidatedField);
+                        $spreadsheet->setActiveSheetIndex(0)
+                            ->setCellValue($i . $excelRow, $row[$consolidatedField[0]]);
+                        $spreadsheet->getActiveSheet()->getStyle($i . $excelRow)->getFill()
+                            ->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)
+                            ->getStartColor()->setARGB(str_replace("#", '', $backgroundColor));
+                        $spreadsheet->getActiveSheet()->getStyle($i . $excelRow)->applyFromArray($styleArray);
+                        $spreadsheet->getActiveSheet()->getStyle($i . $excelRow)->getFill()
+                            ->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)
+                            ->getStartColor()->setARGB(str_replace("#", '', $backgroundColor))
+                            ->applyFromArray($styleArray);
+                        $i++;
+                    } else {
+                        if (isset($sections[$consolidatedField[2]])) {
+                            if ($sectionId == $consolidatedField[2]) {
+                                $spreadsheet->setActiveSheetIndex(0)
+                                    ->setCellValue($i . $excelRow, $row[$consolidatedField[0]]);
+                                $spreadsheet->getActiveSheet()->getStyle($i . $excelRow)->getFill()
+                                    ->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)
+                                    ->getStartColor()->setARGB(str_replace("#", '', $backgroundColor))
+                                    ->applyFromArray($styleArray);
+                                $i++;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // Rename worksheet
+        $spreadsheet->getActiveSheet()->setTitle('Main Report');
+
+        // Set active sheet index to the first sheet, so Excel opens this as the first sheet
+        $spreadsheet->setActiveSheetIndex(0);
+        return $spreadsheet;
     }
 }

@@ -2,20 +2,28 @@
 
 namespace App\Http\Controllers;
 
+use App\Exports\ConsolidateExport;
 use App\Models\ConsolidateMapping;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use App\Http\Requests\ConsolidateMappingRequest;
 use App\Jobs\GenerateConsolidatedRecords;
+use App\Jobs\GenerateExcelReport;
+use App\Models\BatchReports;
+use App\Models\ConsolidateColor;
 use App\Models\ConsolidateGeneration;
 use Illuminate\Support\Facades\Redirect;
-use Illuminate\View\View;
+use Illuminate\Support\Facades\View;
 use App\Models\Cycle;
 use App\Models\Formula;
+use App\Models\Section;
 use App\Models\TablesMapping;
 use LaracraftTech\LaravelDynamicModel\DynamicModel;
 use LaracraftTech\LaravelDynamicModel\DynamicModelFactory;
 use Illuminate\Support\Facades\Schema;
+use League\CommonMark\Extension\Table\TableSection;
+use PhpOffice\PhpSpreadsheet\IOFactory;
+
 
 
 class ConsolidateMappingController extends Controller
@@ -34,7 +42,9 @@ class ConsolidateMappingController extends Controller
             ->orderBy('screen_sort')
             ->paginate();
         $consolidateGeneration = ConsolidateGeneration::checkstatus();
-        return view('consolidate-mapping.index', compact('consolidateMappings', 'consolidateGeneration'))
+        $consolidateColorContent = ConsolidateColor::getAllColumnColors($cycle->id);
+        //dd($consolidateColorContent);
+        return view('consolidate-mapping.index', compact('consolidateMappings', 'consolidateGeneration','consolidateColorContent'))
             ->with('i', ($request->input('page', 1) - 1) * $consolidateMappings->perPage());
     }
 
@@ -45,10 +55,24 @@ class ConsolidateMappingController extends Controller
         if ($consolidateGeneration->status <= 1) {
             ConsolidateGeneration::markGenerationAsInProcess(2);
             if (getenv("DISPATCH_JOBS") == 0) {
-                $job = new GenerateConsolidatedRecords();
-                $job->handle();
-            } else {
                 GenerateConsolidatedRecords::dispatch();
+                //$job = new GenerateConsolidatedRecords();
+                //$job->handle();
+            } else {
+                //GenerateConsolidatedRecords::dispatch();
+                $cycle = Cycle::getCurrentCycle();
+                $data = [
+                    'cycle_id' => $cycle->id,
+                    'section_id' => null,
+                    'student_id' => null,
+                    'report_id' => null,
+                    'created_by' => \Auth::user()->id,
+                    'status' => 1,
+                    'started_at' => null,
+                    'completed_at' => null,
+                    'job_type' => 2,
+                ];
+                BatchReports::create($data);
             }
             return Redirect::route('consolidate-mappings.index')
                 ->with('success', 'Consolidated Generation submitted to queue and will be processes in a moment.');
@@ -61,7 +85,7 @@ class ConsolidateMappingController extends Controller
     /**
      * Show the form for creating a new resource.
      */
-    public function create(): View
+    public function create()
     {
         $cycle = Cycle::getCurrentCycle();
         $consolidateMapping = new ConsolidateMapping();
@@ -70,8 +94,10 @@ class ConsolidateMappingController extends Controller
             ORDER BY master_tables.table_name, tables_mappings.id ";
         $fieldsToSelect = \DB::select($sql, [$cycle->id]);
         $formulasToUse = Formula::getFormulasToSelect($cycle->id);
+        $sectionsToUse = Section::getSectionsToSelect();
+        $isCreate = true;
         //dd($fieldsToSelect);
-        return view('consolidate-mapping.create', compact('consolidateMapping', 'fieldsToSelect', 'cycle', 'formulasToUse'));
+        return view('consolidate-mapping.create', compact('consolidateMapping', 'fieldsToSelect', 'cycle', 'formulasToUse','sectionsToUse','isCreate'));
     }
 
     /**
@@ -93,6 +119,7 @@ class ConsolidateMappingController extends Controller
         }
         $data["created_at"] =  \Carbon\Carbon::now(); # new \Datetime()
         $data["updated_at"] = \Carbon\Carbon::now(); # new \Datetime()
+        $data["section_id"] = $request->section_id;
         ConsolidateMapping::create($data);
 
         return Redirect::route('consolidate-mappings.index')
@@ -102,7 +129,7 @@ class ConsolidateMappingController extends Controller
     /**
      * Display the specified resource.
      */
-    public function show($id): View
+    public function show($id)
     {
         $cycle = Cycle::getCurrentCycle();
         $consolidateMapping = ConsolidateMapping::where('id', $id)
@@ -115,7 +142,7 @@ class ConsolidateMappingController extends Controller
     /**
      * Show the form for editing the specified resource.
      */
-    public function edit($id): View
+    public function edit($id)
     {
         $cycle = Cycle::getCurrentCycle();
         $consolidateMapping = ConsolidateMapping::where('id', $id)
@@ -126,10 +153,12 @@ class ConsolidateMappingController extends Controller
             ORDER BY master_tables.table_name, tables_mappings.id ";
         $fieldsToSelect = \DB::select($sql, [$cycle->id]);
         $formulasToUse = Formula::getFormulasToSelect($cycle->id);
+        $sectionsToUse = Section::getSectionsToSelect();
+        $isCreate = false;
         //dd($fieldsToSelect);
         //dd($formulasToUse);
 
-        return view('consolidate-mapping.edit', compact('consolidateMapping', 'fieldsToSelect', 'cycle', 'formulasToUse'));
+        return view('consolidate-mapping.edit', compact('consolidateMapping', 'fieldsToSelect', 'cycle', 'formulasToUse','sectionsToUse','isCreate'));
     }
 
     /**
@@ -151,6 +180,7 @@ class ConsolidateMappingController extends Controller
             $data['field_source'] = null;
         }
 
+        $data["section_id"] = $request->section_id;
         $consolidateMapping->update($data);
 
         return Redirect::route('consolidate-mappings.index')
@@ -167,119 +197,91 @@ class ConsolidateMappingController extends Controller
 
 
 
-    public function consolidatedViewCSV(Request $request, $overrideCycle = null)
+    public function consolidatedViewCSV(Request $request, $cycleId=null, $sectionId=null, $overrideCycle = null)
     {
-        $this->consolidatedView($request, $overrideCycle = null, 'Y');
+
+        $this->consolidatedView($request, $cycleId, $sectionId,$overrideCycle = null, 'CSV');
+
     }
-    public function consolidatedView(Request $request, $overrideCycle = null, $isCSV = null)
+    public function consolidatedViewExcel(Request $request, $cycleId=null, $sectionId=null, $overrideCycle = null)
     {
-        set_time_limit(0);
-        ini_set('memory_limit','-1');
-        if (!\Auth::user()->isAdmin()) {
-            $overrideCycle = null;
-        }
+        $this->consolidatedView($request, $cycleId, $sectionId,$overrideCycle = null, 'EXCEL');
+        return redirect('/admin/consolidate-view')
+                        ->with('message', 'Consolidated EXCEL Generation submitted to queue and will be processes in a moment, You should receive an email with this report shortly');
+    }
 
-        $cycles = Cycle::getAllCycles();
-        $consolidateGeneration = ConsolidateGeneration::checkstatus();
-        //dd($consolidateGeneration);
-        if ($consolidateGeneration->status > 1) {
-            return Redirect::route('consolidate-mappings.index')
-                ->with('error', 'Consolidated Generation in process.. please wait unitl completion.');
+    public function consolidatedView(Request $request, $cycleId=null, $sectionId=null, $overrideCycle = null, $exportFormat = null )
+    {
+
+        //dd($request, $cycleId, $sectionId, $overrideCycle, $exportFormat);
+        if (!$sectionId) {
+            $sectionId = 0;
         }
-        if (!$overrideCycle) {
+        if (!$cycleId) {
             $cycle = Cycle::getCurrentCycle();
+            $cycleId = $cycle->id;
         } else {
-            $cycle = Cycle::where('id', $overrideCycle)->first();
+            $cycle = Cycle::getCyclesById($cycleId);
         }
+        if (!\Auth::user()->isAdmin()) {
+            $cycle = Cycle::getCurrentCycle();
+            $cycleId = $cycle->id;
+        }
+        //dd($cycleId,$sectionId);
+        $return = ConsolidateMapping::generateReport($request,$sectionId, $cycleId,  $overrideCycle, $exportFormat);
+        //dd($return);
+        if (!isset($return['rows'])) {
+            session()->flash('error-message', $return['status']);
+            return redirect("/admin/consolidate-mappings");
+        }
+        $rows = $return['rows'];
+        $consolidatedBasicFields = $return['consolidatedBasicFields'];
+        $consolidatedFields = $return['consolidatedFields'];
+        $cycles = $return['cycles'];
+        $sections = $return['sections'];
+        $reportsList = $return['reportsList'];
+        $consolidateColors = ConsolidateColor::getAllColumnColors($cycleId);
 
-        if (!$cycle) {
-            session()->flash('error-message', 'This cycle doesnt exists');
-            return redirect("/admin/consolidate-view");
-        }
-        $consolidatedFields = Formula::getConsolidatedFieldsWithDescription($cycle);
-        //dd($consolidatedFields);
 
-
-        $tempTableName = "consolidated_cycle_" . $cycle->id;
-        //dd($tempTableName);
-        if (!Schema::hasTable($tempTableName)) {
-            ConsolidateMapping::buildDynamicModel();
-            //$tempTableModel = app(DynamicModelFactory::class)->create(DynamicModel::class, $tempTableName);
-            session()->flash('error-message', 'No Data for that cycle ');
-            //return redirect("/admin/consolidate-mappings");
-            //return redirect("/admin/consolidate-view");
-        }
-        $tempTableModel = app(DynamicModelFactory::class)->create(DynamicModel::class, $tempTableName);
-        $tempTableModel->where("student_id", 0)->delete();
-        if (\Auth::user()->role_as == 1 || \Auth::user()->role_as == 3) {
-            $rows = $tempTableModel::where('cycle_id', $cycle->id)
-                ->where('student_id', '<>', '');
-        } else {
-            $rows = $tempTableModel::where('cycle_id', $cycle->id)
-                ->where('student_id', '<>', '')
-                ->where('teacher_id', \Auth::user()->getTeacherId());
-        }
-        if ($request->has('search')) {
-            $rows = $rows->where(function ($query) use ($request) {
-                $query->Where('student_id', 'like', '%' . $request->search . '%')
-                    ->orWhere('Column_A', 'like', '%' . $request->search . '%')
-                    ->orWhere('Column_B', 'like', '%' . $request->search . '%')
-                    ->orWhere('Column_C', 'like', '%' . $request->search . '%')
-                    ->orWhere('Column_D', 'like', '%' . $request->search . '%')
-                    ->orWhere('Column_E', 'like', '%' . $request->search . '%')
-                    ->orWhere('Column_F', 'like', '%' . $request->search . '%')
-                    ->orWhere('Column_G', 'like', '%' . $request->search . '%')
-                    ->orWhere('Column_H', 'like', '%' . $request->search . '%')
-                    ->orWhere('Column_I', 'like', '%' . $request->search . '%')
-                    ->orWhere('Column_J', 'like', '%' . $request->search . '%');
-            })
-                ->orderBy('student_id')
-                ->paginate(50);
-        } else {
-            if ($isCSV != 'Y') {
-                $rows = $rows->paginate(50);
-            } else {
-                //$rows = $rows->take(10)->get();
-                $rows = $rows->get();
-            }
-        }
         if ($rows->isEmpty()) {
             session()->flash('error-message', 'No Data for that cycle ');
         }
-        //dd($rows);
-        //dd($consolidatedFields);
-        if ($isCSV != 'Y') {
-            return view('consolidate-mapping.view-consolidated', compact('consolidatedFields', 'rows', 'cycles','overrideCycle'));
-        } else {
-            $fielMapping = [];
-            $csvRows = [];
-            $i = 1;
-            foreach ($consolidatedFields as $consolidatedField) {
-                $fielMapping[$consolidatedField[1]] = $consolidatedField[0];
-                $csvRows[$i][] = $consolidatedField[1];
-            }
-            $i++;
-            foreach ($rows as $row) {
-                //dd($consolidatedFields);
-                foreach ($consolidatedFields as $consolidatedField) {
-                    $tmp = str_replace("\r","",$row[$consolidatedField[0]]);
-                    $tmp = str_replace("\n","",$tmp);
-                    $csvRows[$i][] = $tmp;
-                }
-                $i++;
-            }
+
+        if (!$exportFormat) {
+            //dd($sections);
+            return view('consolidate-mapping.view-consolidated', compact('consolidatedFields', 'consolidatedBasicFields','rows', 'cycles','overrideCycle','sections','sectionId','exportFormat','reportsList','cycle','consolidateColors'));
+        } elseif ($exportFormat == "CSV") {
+            $csvRows = ConsolidateMapping::generateCSV($rows, $consolidatedFields,$consolidatedBasicFields,$cycles,$sections,$sectionId);
 
             // Set PHP headers for CSV output.
             header('Content-Type: text/csv; charset=utf-8');
             header('Content-Disposition: attachment; filename=consolidated_report_' . date("Y_m_d") . '.csv');
             $output = fopen('php://output', 'w');
-            // Write headers to CSV file.
-            //dd($csvRows);
+
             foreach ($csvRows as $data_item) {
-                //dd($data_item);
                 fputcsv($output, $data_item);
             }
             fclose($output);
+        } elseif ($exportFormat == "EXCEL") {
+
+            //'status', // 1 = in queue / 2 = in process / 3 = completed
+            $data = [
+                'cycle_id' => $cycleId,
+                'section_id' => $sectionId,
+                'student_id' => null,
+                'report_id' => null,
+                'created_by' => \Auth::user()->id,
+                'status' => 1,
+                'started_at' => null,
+                'completed_at' => null,
+                'job_type' => 1,
+            ];
+            BatchReports::create($data);
+
+
+
+
+
 
         }
     }

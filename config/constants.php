@@ -208,6 +208,12 @@ $myValues['siteOperations'] = [
     '{self:teacher_id}',
     '{self:student_id}',
     '{self:cycle_id}',
+    '{subtract}',
+    '{add}',
+    '{multiply}',
+    '{dividedby}',
+    '{evaluateStudentAccountColumnK}',
+    '{evaluateStudentAccountColumnN}',
     '{checkStudent}:{place student_id from the table you want to check}',
     '{remove:"Independent Study - "}:{place column name to return here}',
     '{remove:"Independent Student - "}:{place column name to return here}',
@@ -217,6 +223,14 @@ $myValues['siteOperations'] = [
     '{getMultipleValues}:{place column name to return here}',
     '{getEquivalences}:{place column name to evaluate}',
     '{self}:{place column name to evaluate}',
+    '{concatenate}:{place column name to evaluate}{&}{place column name to evaluate}',
+];
+$myValues['userTypes'] = [
+    'Student' => 0,
+    'Teacher' => 2,
+    'Specialist' => 4,
+    'Manager' => 3,
+    'Admin' => 1,
 ];
 
 return $myValues;

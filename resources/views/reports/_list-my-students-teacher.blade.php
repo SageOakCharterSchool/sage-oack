@@ -19,7 +19,10 @@
             {{ $row->column_g }}
         </td>
         <td>
-            @if (Auth::user()->isAdmin())
+            {{ $row->column_k }}
+        </td>
+        <td>
+            @if (Auth::user()->isAdmin() || Auth::user()->isManager())
                 <div class="btn-group" role="group">
                     <button id="btnGroupDrop1" type="button" class="btn btn-primary dropdown-toggle"
                         data-bs-toggle="dropdown" aria-expanded="false">
@@ -45,6 +48,12 @@
                                 href="javascript:assignStudentsToSpecialist({{ $row->student_id }})">Assign To
                                 Specialist</a>
                         </li>
+                        @if (Auth::user()->isAdmin())
+                        {{-- <li>
+                            <a class="dropdown-item"
+                                href="/admin/view-students/analize-student/{{ $row->student_id }}">Analize Student</a>
+                        </li> --}}
+                        @endif
                     </ul>
                 </div>
             @endif

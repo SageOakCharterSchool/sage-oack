@@ -8,6 +8,7 @@ use Illuminate\Http\Request;
 use App\Http\Requests\FormulaRequest;
 use App\Models\ConsolidateMapping;
 use App\Models\Cycle;
+use App\Models\MasterTables;
 use Illuminate\Support\Facades\Redirect;
 use Illuminate\View\View;
 
@@ -38,11 +39,12 @@ class FormulaController extends Controller
         $formula = new Formula();
         $siteVariables = Formula::buildSiteVariables();
         $siteFormulas = Formula::buildSiteFormulas();
+        $siteTables = Formula::buildSiteTables();
 
         $siteOperations = config('constants.siteOperations');
         //dd($siteVariables,$siteOperations);
         $cycle = Cycle::getCurrentCycle();
-        return view('formula.create', compact('formula','cycle','siteOperations', 'siteVariables','siteFormulas'));
+        return view('formula.create', compact('formula','cycle','siteOperations', 'siteVariables','siteFormulas','siteTables'));
     }
 
     /**
@@ -79,13 +81,13 @@ class FormulaController extends Controller
         $siteVariables = Formula::buildSiteVariables();
 
         $siteOperations = $siteOperations = config('constants.siteOperations');
-
+        $siteTables = Formula::buildSiteTables();
         $cycle = Cycle::getCurrentCycle();
         $formula = Formula::where('id',$id)
                     ->where('cycle_id',$cycle->id)
                     ->first();
 
-        return view('formula.edit', compact('formula','cycle','siteOperations', 'siteVariables'));
+        return view('formula.edit', compact('formula','cycle','siteOperations', 'siteVariables','siteTables'));
     }
 
     /**

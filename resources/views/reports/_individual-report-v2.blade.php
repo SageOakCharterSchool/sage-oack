@@ -11,7 +11,7 @@
        border: 1px solid;
     }
     th {
-        background: #C8D3CA !important;
+        /* background: #C8D3CA !important; */
     }
     .noborder {
        border: none;

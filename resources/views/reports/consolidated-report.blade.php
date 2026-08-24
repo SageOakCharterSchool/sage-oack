@@ -15,7 +15,7 @@
         }
 
         th {
-            background: #C8D3CA !important;
+            /* background: #C8D3CA !important; */
         }
 
         .noborder {

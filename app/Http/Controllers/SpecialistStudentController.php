@@ -18,11 +18,19 @@ class SpecialistStudentController extends Controller
      */
     public function index(Request $request): View
     {
-        $specialistStudents = SpecialistStudent::paginate();
-
-        return view('specialist-student.index', compact('specialistStudents'))
+        $cycle = Cycle::getCurrentCycle();
+        SpecialistStudent::createSpecialistFromUsers();
+        $specialistStudents = SpecialistStudent::where("cycle_id",$cycle->id)
+                                    ->whereNotNull('student_id')
+                                    ->paginate(15);
+        //dd($specialistStudents);
+        return view('specialist-student.index', compact('specialistStudents','cycle'))
             ->with('i', ($request->input('page', 1) - 1) * $specialistStudents->perPage());
     }
+
+
+
+
 
     /**
      * Show the form for creating a new resource.
@@ -91,5 +99,32 @@ class SpecialistStudentController extends Controller
 
         return Redirect::route('specialist-students.index')
             ->with('success', 'SpecialistStudent deleted successfully');
+    }
+
+    public function uploadFile(): View
+    {
+
+        return view('specialist-student.upload');
+
+    }
+    public function processUploadFile(Request $request)
+    {
+        $request->validate([
+            'specialist_file' => 'required|mimes:csv,txt|max:12048',
+        ]);
+        if($request->file()) {
+
+            $fileName = time().'_'.$request->file('specialist_file')->getClientOriginalName();
+            $filePath = $request->file('specialist_file')->storeAs('uploads', $fileName, 'public');
+            $return = SpecialistStudent::processUploadedFile($fileName,$filePath);
+            //dd($return);
+            if ($return['status']) {
+                return redirect('admin/specialist-students')->with('success', 'File Uploaded successfully! ' . $return['message']);
+            } else {
+                return redirect('admin/specialist-students')->with('error', 'Please check the file, some errors reported ' .  $return['message']);
+            }
+
+        }
+
     }
 }

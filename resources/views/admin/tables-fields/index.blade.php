@@ -13,10 +13,10 @@
             <div class="card">
                 <div class="card-header">
                     <h4>Tables
-                        {{-- <a class="btn btn-warning btn-sm float-end" href="{{ url('admin/table-def/create') }}">Add Table</a> --}}
+                        <a class="btn btn-warning btn-sm float-end" href="{{ url('admin/table-def/create') }}">Add Table</a>
                     </h4>
                 </div>
-                <div class="card-body">
+                <div class="card-body table-responsive">
                     <table class="table table-bordered table-striped">
                         <thead>
                             <tr>
@@ -66,6 +66,8 @@
                                         @endif --}}
                                         <a class="btn btn-warning btn-sm"
                                             href="{{ url('/admin/field-def/' . $table->id . '/fields') }}">Fields</a>
+                                        <a class="btn btn-info btn-sm"
+                                            href="{{ url('/admin/table-def/edit/' . $table->id ) }}">Edit</a>
                                         @if ($table->process_status <= 1)
                                             @if ($table->allow_upload == 1)
                                                 <button class="btn btn-success btn-sm uploadTableRecordsButton"
@@ -216,6 +218,11 @@
 
         function processUpload() {
 
+            $.ajaxSetup({
+                headers: {
+                        'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
+                    }
+            });
             if (!validateFieldsEntered()) {
                 return;
             }
@@ -271,6 +278,8 @@
                     });
                 },
                 error: function(request, status, error) {
+                    console.log(request);
+
                     $("#buttonsToProcess").show();
                     $("#waitMessage").hide();
                     var response = JSON.parse(request.responseText);

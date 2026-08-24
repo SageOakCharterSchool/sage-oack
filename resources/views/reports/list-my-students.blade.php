@@ -14,41 +14,51 @@
         <button class="btn btn-primary btn-sm float-end p-2" onclick="javascript:createStudentForm()">Create
             Students</button>
     @endif
-    <table class="table ">
-        <tr>
-            <td style="width:10%">
-                Student Id
-            </td>
-            <td>
-                Student Name
-            </td>
-            <td>
-                Student Email
-            </td>
-            <td>
-                Grade
-            </td>
-            <td>
-                Student Password
-            </td>
-            <td>
-                Student DOB
-            </td>
-            <td>
-                @if (Auth::user()->isAdmin())
-                    Options
-                @endif
-            </td>
+    <div class="clearfix"></div>
+    <div class="table-responsive">
 
-        </tr>
-        @if (Auth::user()->isTeacher())
-            @include('reports._list-my-students-teacher')
-        @elseif (Auth::user()->isAdmin())
-            @include('reports._list-my-students-teacher')
-        @elseif (Auth::user()->isSpecialist())
-            @include('reports._list-my-students-specialist')
-        @endif
-    </table>
+
+        <table class="table ">
+            <tr>
+                <td style="width:10%">
+                    Student Id
+                </td>
+                <td>
+                    Student Name
+                </td>
+                <td>
+                    Student Email
+                </td>
+                <td>
+                    Grade
+                </td>
+                <td>
+                    Student Password
+                </td>
+                <td>
+                    Student DOB
+                </td>
+                <td>
+                    CB Tracking
+                </td>
+                <td>
+                    @if (Auth::user()->isAdmin())
+                        Options
+                    @endif
+                </td>
+
+            </tr>
+            @if (Auth::user()->isTeacher())
+                @include('reports._list-my-students-teacher')
+            @elseif (Auth::user()->isAdmin())
+                @include('reports._list-my-students-teacher')
+            @elseif (Auth::user()->isManager())
+                @include('reports._list-my-students-teacher')
+            @elseif (Auth::user()->isSpecialist())
+                @include('reports._list-my-students-specialist')
+            @endif
+        </table>
+    </div>
     {{ $myStudents->links('pagination::simple-bootstrap-5') }}
     @include('reports._change_student_password_modal')
     @include('reports._create_students_modal')
@@ -127,9 +137,7 @@
                         studInfo +=
                             'Current Specialist Id: ' + response.currentSpecialistAssigned.specialist_id +
                             '<br>' +
-                            'Current Specialist: ' + response.currentSpecialistAssigned.first_name + ' ' +
-                            response
-                            .currentSpecialistAssigned.last_name + '<br>' +
+                            'Current Specialist: ' + response.currentSpecialistAssigned.name + ' ' + '<br>' +
                             "</p>";
                     }
                     $('#assignStudentInfo').html(studInfo);
@@ -162,7 +170,7 @@
                 success: function(response) {
                     $.unblockUI();
                     Swal.fire({
-                        title: "Reassing Completed!",
+                        title: "Reassign Completed!",
                         text: response.msg,
                         icon: "success"
                     });

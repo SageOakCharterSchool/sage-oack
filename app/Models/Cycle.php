@@ -37,4 +37,8 @@ class Cycle extends Model
     protected function getAllCycles() {
         return $this->orderBy('date_from','asc')->get();
     }
+
+    protected function getCyclesById($id) {
+        return $this->where('id',$id)->first();
+    }
 }

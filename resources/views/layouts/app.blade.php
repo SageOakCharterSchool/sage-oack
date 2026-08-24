@@ -107,6 +107,8 @@
                 type: 'POST',
                 data: {
                     feedback: $("#feedback").val(),
+                    url: $("#url").val(),
+                    reporter_email: $("#reporter_email").val(),
                     _token: $("#_token").val(),
                 },
                 dataType: "text",
@@ -122,5 +124,6 @@
             console.log('here2');
         }
     </script>
+     @include('layouts.analytics')
 </body>
 </html>

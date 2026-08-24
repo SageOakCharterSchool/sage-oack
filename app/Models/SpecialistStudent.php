@@ -2,8 +2,14 @@
 
 namespace App\Models;
 
+use App\Helpers\JMHelper;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
+use Illuminate\Support\Facades\Hash;
+use App\Mail\VerificationEmail;
+use Illuminate\Support\Facades\Mail;
 
 class SpecialistStudent extends Model
 {
@@ -54,12 +60,13 @@ class SpecialistStudent extends Model
         return false;
     }
 
-    protected function createSpecialist($request,$user) {
+    protected function createSpecialist($request, $user)
+    {
         $cycle = Cycle::getCurrentCycle();
         if (!$cycle) {
             return;
         }
-        $names = explode(" ",$user->name);
+        $names = explode(" ", $user->name);
         $data = [
             'cycle_id' => $cycle->id,
             'student_id' => $request->studentId,
@@ -200,6 +207,165 @@ class SpecialistStudent extends Model
                 ->update([
                     'specialist_id' => null
                 ]);
+        }
+    }
+
+    protected function createSpecialistFromUsers()
+    {
+        $cycle = Cycle::getCurrentCycle();
+        if (!$cycle) {
+            return;
+        }
+        $allSpecialist = User::where('role_as', 4)
+            ->where('status', 1)
+            ->get();
+        foreach ($allSpecialist as $row) {
+            $existAsSpecialist = $this->where("email", $row->email)
+                ->where('cycle_id', $cycle->id)
+                ->first();
+            if (!$existAsSpecialist) {
+                $names = explode(" ", $row->name);
+                $data = [
+                    'cycle_id' => $cycle->id,
+                    'student_id' => null,
+                    'specialist_id' => $row->id,
+                    'email' => $row->email,
+                    'name' => $row->name,
+                    'first_name' => $names[0] ?? "",
+                    'last_name' => $names[1] ?? "",
+                    'created_by' => \Auth::user()->id,
+                ];
+                $this->create($data);
+            }
+        }
+    }
+
+    protected function processUploadedFile($fileName, $filePath)
+    {
+        $cycle = Cycle::getCurrentCycle();
+        if (!$cycle) {
+            unlink($filePath);
+            return [
+                'status' => false,
+                'message' => 'Wrong Cycle'
+            ];
+        }
+        $headersToCheck = [
+            0 => "SEIS ID",
+            1 => "SSID",
+            2 => "Last Name",
+            3 => "First Name",
+            4 => "Middle Name",
+            5 => "Preferred Name",
+            6 => "DOB",
+            7 => "CaseManager",
+            8 => "Case Manager Email",
+            9 => "Reporting LEA",
+            10 => "DSEA",
+            11 => "School",
+            12 => "Grade",
+            13 => "Primany Language",
+            14 => "SPED Type",
+            15 => "Disability 1",
+            16 => "Next Plan Review",
+            17 => "Next Reevaluation",
+            18 => "Eligibility"
+        ];
+        $filePath = Storage::path("public/uploads/" . $fileName);
+        if (($handle = fopen($filePath, 'r')) !== FALSE) {
+            // Optionally, skip the header row if your CSV has one
+            $headers = fgetcsv($handle);
+            //dd($headersToCheck,$headers);
+            $good = 0;
+            for ($i = 0; $i <= 18; $i++) {
+                if (isset($headers[$i]) && isset($headersToCheck[$i])) {
+                    if (trim(strtolower($headers[$i])) == trim(strtolower($headersToCheck[$i]))) {
+                        $good++;
+                    }
+                }
+            }
+            if ($good != 19) {
+                unlink($filePath);
+                return [
+                    'status' => false,
+                    'message' => 'We indentify only ' . $good . ' columns out of 18'
+                ];
+            }
+            $invalidUsers = 0;
+            $cycle =  Cycle::getCurrentCycle();
+            $totalRows = 0;
+            $totalDuplicates = 0;
+            $totalBlanks = 0;
+            $totalMissing = 0;
+            $missingInStudAccounts = [];
+            while (($row = fgetcsv($handle)) !== FALSE) {
+                $isGood = JMHelper::JMisCsvRowNotEmpty($row);
+                if (!$isGood) {
+                    // empty row skipped
+                    continue;
+                }
+                $user = User::where('email', $row[8])->first();
+                if (!$user) {
+                    $password = Str::password();
+                    $user = User::create([
+                        'name' => JMHelper::JMSanitizeField($row[7]),
+                        'email' => strtolower(JMHelper::JMSanitizeField($row[8])),
+                        'password' => Hash::make($password),
+                        'email_verification_token' => Str::random(32),
+                        'email_verified' => 0,
+                        'role_as' => 4
+                    ]);
+                    if (strtolower(getenv("APP_ENV")) == "prod") {
+                        Mail::to($user->email)->send(new VerificationEmail($user, $password));
+                    } else {
+                        if ($totalRows % 300 == 0) {
+                            //Mail::to($user->email)->send(new VerificationEmail($user, $password));
+                        }
+                    }
+                }
+                $studentExistsForThisSpecialist = SpecialistStudent::where('cycle_id',$cycle->id)
+                        ->where('specialist_id',$user->id)
+                        ->where('student_id',JMHelper::JMSanitizeField($row[1]))
+                        ->first();
+                if ($studentExistsForThisSpecialist) {
+                    $totalDuplicates++;
+                    continue; // Student already exists skipped
+                }
+                $studentInfo = StudentAccounts::where('cycle_id',$cycle->id)
+                                        ->where('student_id',JMHelper::JMSanitizeField($row[1]))
+                                        ->first();
+                if (!$studentInfo) {
+                    $totalMissing++;
+                    $missingInStudAccounts[$row[1]] = $row[2] . ' ' . $row[3] ;
+                    continue; // Student does not exist on students accounts skipped
+                }
+                $data = [
+                    'cycle_id' => $cycle->id,
+                    'specialist_id' => $user->id,
+                    'email' => strtolower(JMHelper::JMSanitizeField($row[8])),
+                    'name' => JMHelper::JMSanitizeField($row[7]),
+                    'students_list',
+                    'student_id' => JMHelper::JMSanitizeField($row[1]),
+                    'first_name' => JMHelper::JMSanitizeField($row[3]),
+                    'last_name' => JMHelper::JMSanitizeField($row[2]),
+                    'created_by' => \Auth::user()->id,
+                ];
+                SpecialistStudent::create($data);
+                $totalRows++;
+            }
+            fclose($handle);
+            unlink($filePath);
+            $message  = 'Total Records created ' . $totalRows . "\n";
+            $message .= 'Total Duplicates ' . $totalDuplicates . "\n";
+            $message .= 'Total Non Existing in Student Accounts ' . $totalMissing . "\n";
+            foreach ($missingInStudAccounts as $k => $val) {
+                $message .= " Student " . $k . ' -> ' . $val . "\n";
+            }
+            //dd($message);
+            return [
+                'status' => true,
+                'message' => $message
+            ];
         }
     }
 }

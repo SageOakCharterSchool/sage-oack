@@ -24,7 +24,7 @@
                             <th>Student Password</th>
                             <td>
                                 <div class="form-group">
-                                    <input type="text" class="form-control" id="studentPassword" maxlength="8"
+                                    <input type="text" class="form-control" id="studentPassword" maxlength="20"
                                         placeholder="Enter Password">
                                 </div>
                             </td>

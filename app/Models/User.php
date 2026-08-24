@@ -6,12 +6,14 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
-use Laravel\Sanctum\HasApiTokens;
+use Carbon\Carbon;
+//use Laravel\Sanctum\HasApiTokens;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class User extends Authenticatable
 {
-    use HasApiTokens, HasFactory, Notifiable;
+    //use HasApiTokens, HasFactory, Notifiable;
+    use HasFactory, Notifiable;
 
     /**
      * The attributes that are mass assignable.
@@ -26,7 +28,8 @@ class User extends Authenticatable
         'status',
         'email_verification_token',
         'email_verified',
-        'role_as'
+        'role_as',
+        'google_id',
     ];
 
     /**
@@ -123,5 +126,38 @@ class User extends Authenticatable
             return -2; // to make sure no records will be retrieved
         }
         return $getTeacherId;
+    }
+
+    protected function checkSSO($googleUser)
+    {
+        $allowedDomains = [
+            'sageoak.education',
+        ];
+        $domain = substr(strrchr($googleUser->email, "@"), 1);
+        if (!in_array($domain, $allowedDomains)) {
+            return null;
+        }
+        $user = User::where("email", $googleUser->email)->first();
+        if ($user) {
+            $user->google_id = $googleUser->id;
+            $user->save();
+        } else {
+            $data = [
+                'name' => $googleUser->name,
+                'email' => $googleUser->email,
+                'last_login' => Carbon::now(),
+                'status' => 1,
+                'email_verification_token' => '',
+                'email_verified' => 1,
+                'role_as' => 2,
+                'google_id' => $googleUser->id,
+                'email_verified_at' => Carbon::now(),
+            ];
+            $user = User::create($data);
+            // Notify all admins that a new account has been created by a teacher
+        }
+
+
+        return $user;
     }
 }

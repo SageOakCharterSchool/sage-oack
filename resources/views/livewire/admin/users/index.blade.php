@@ -19,7 +19,7 @@
                         @endif
                     </h4>
                 </div>
-                <div class="card-body">
+                <div class="card-body table-responsive">
                     <div class="input-group mb-3">
                         <input type="text" class="form-control" placeholder="Name/Email/Id"
                             wire:model.defer="keyWord">
@@ -27,7 +27,7 @@
                             <button wire:click="render" class="btn btn-outline-secondary" type="button">Search</button>
                         </div>
                     </div>
-                    <table class="table table-bordered table-striped">
+                    <table class="table table-bordered table-striped table-responsive-sm">
                         <thead>
                             <tr>
                                 <th>ID</th>

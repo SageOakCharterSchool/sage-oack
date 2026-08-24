@@ -18,7 +18,7 @@
 
                             <div class="col-md-6 mb-3">
                                 <label for="" class="form-label">Table Name</label>
-                                <input type="text" value="{{old('table_name')}}" class="form-control" id="table_name" name="table_name" placeholder="table name">
+                                <input type="text" maxlength="55" value="{{old('table_name')}}" class="form-control" id="table_name" name="table_name" placeholder="table name">
                                 @error('table_name')
                                     <small class="text-danger">{{$message}}</small>
                                 @enderror

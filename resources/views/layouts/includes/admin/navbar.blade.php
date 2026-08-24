@@ -38,7 +38,10 @@
           </div>
         </li>
     </ul>
-    <a class="nav-link" href="javascript:open_bug_modal_feedback()">
+    <a class="nav-link" href="/admin/resources" data-toggle="tooltip" data-placement="top" title="View Resources" >
+        <i  style="color:red !important"class="mdi mdi-account-question menu-icon"></i>
+    </a>
+    <a class="nav-link" href="javascript:open_bug_modal_feedback()" data-toggle="tooltip" data-placement="top" title="Report a bug">
         <i class="mdi mdi-bug-outline menu-icon"></i>
     </a>
 

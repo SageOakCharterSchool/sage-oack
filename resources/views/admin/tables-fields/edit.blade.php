@@ -19,9 +19,9 @@
 
 
                             <div class="col-md-6 mb-3">
-                                <label for="" class="form-label">Table Name</label>
-                                <input type="text" value="{{ (  !is_null(request()->input('table_name')) ? request()->input('table_name'): ( old('table_name',$table->table_name  ) ) ) }}" class="form-control" id="table_name" name="table_name" placeholder="table name">
-                                @error('table_name')
+                                <label for="" class="form-label">Table Alias</label>
+                                <input type="text" value="{{ (  !is_null(request()->input('table_alias')) ? request()->input('table_alias'): ( old('table_alias',$table->table_alias  ) ) ) }}" class="form-control" id="table_alias" name="table_alias" placeholder="table name">
+                                @error('table_alias')
                                     <small class="text-danger">{{$message}}</small>
                                 @enderror
                             </div>

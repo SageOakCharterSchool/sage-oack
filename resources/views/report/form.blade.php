@@ -39,10 +39,13 @@
     <script>
         var consolidatedVariables = @json($consolidatedVariables ?? '');
         tinymce.init({
-            content_css: "/assets/css/report.css?v=",
+            // content_css: "/assets/css/report.css?v=",
             // menubar: false,
             selector: 'textarea#report',
             height: 500,
+            relative_urls: false,
+            remove_script_host: false,
+            convert_urls: true,
             paste_retain_style_properties: "all",
             paste_as_text: false,
             plugins: ['table wordcount', "advlist autolink lists link image charmap print preview hr anchor pagebreak", "searchreplace wordcount visualblocks visualchars code fullscreen", "insertdatetime media nonbreaking save table contextmenu directionality", "emoticons template paste textcolor  "],

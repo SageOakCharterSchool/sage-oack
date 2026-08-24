@@ -17,10 +17,16 @@
         </div>
         <div class="form-group mb-2 mb20">
             <label for="column_name" class="form-label">{{ __('Column Name') }}</label>
-            <input type="text" name="column_name" class="form-control @error('column_name') is-invalid @enderror"
-                value="{{ old('column_name', $consolidateMapping?->column_name) }}" id="column_name"
-                placeholder="Column_A,Column_B">
-            {!! $errors->first('column_name', '<div class="invalid-feedback" role="alert"><strong>:message</strong></div>') !!}
+            @if ($isCreate)
+                <input type="text" name="column_name" class="form-control @error('column_name') is-invalid @enderror"
+                    value="{{ old('column_name', $consolidateMapping?->column_name) }}" id="column_name"
+                    placeholder="Column_A,Column_B">
+                {!! $errors->first('column_name', '<div class="invalid-feedback" role="alert"><strong>:message</strong></div>') !!}
+            @else
+                <input type="text" name="column_name"  readonly class="form-control @error('column_name') is-invalid @enderror"
+                    value="{{ old('column_name', $consolidateMapping?->column_name) }}" id="column_name"
+                    placeholder="Column_A,Column_B">
+            @endif
         </div>
         <div class="form-group mb-2 mb20">
             <label for="column_description" class="form-label">{{ __('Column Description') }}</label>
@@ -61,6 +67,20 @@
             </select>
 
             {!! $errors->first('formula_id', '<div class="invalid-feedback" role="alert"><strong>:message</strong></div>') !!}
+        </div>
+
+        <div class="form-group mb-2 mb20">
+            <label for="field_source" class="form-label">{{ __('Section') }}</label>
+            <select class="form-select" name="section_id" id="section_id">
+                <option value="">Select Section to use</option>
+                @foreach ($sectionsToUse as $k => $row)
+                    <option value="{{ $k }}"
+                        {{ old('section_id', $consolidateMapping?->section_id) == $k ? ' selected ' : '' }}>
+                        {{ $row }}</option>
+                @endforeach
+            </select>
+
+            {!! $errors->first('section_id', '<div class="invalid-feedback" role="alert"><strong>:message</strong></div>') !!}
         </div>
         <input type="hidden" name="cycle_id" value="{{ $cycle->id }}">
         <input type="hidden" name="created_by" value="{{ \Auth::user()->id }}">

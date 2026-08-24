@@ -124,5 +124,8 @@ class UploadRecordsTeacherStudents implements ShouldQueue
             //dd($bulkData);
             //var_dump($data);
         }
+        foreach (array_chunk($bulkData, 100) as $t) {
+            TeacherStudent::insert($t);
+        };
     }
 }

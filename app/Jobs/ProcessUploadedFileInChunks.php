@@ -14,6 +14,8 @@ use Illuminate\Support\Facades\Auth;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Log;
 use App\Jobs\MarkBatchUploadAsCompleted;
+use App\Models\BatchReports;
+use App\Models\Cycle;
 
 class ProcessUploadedFileInChunks implements ShouldQueue
 {
@@ -124,7 +126,12 @@ class ProcessUploadedFileInChunks implements ShouldQueue
                         $job = new UploadRecordsIntoMultiTable($bulkData);
                         $job->handle();
                     } else {
-                        UploadRecordsIntoMultiTable::dispatch($bulkData);
+                        $insert_data = collect($bulkData);
+                        $chunks = $insert_data->chunk(500);
+                        foreach ($chunks as $chunk) {
+                            DB::table('multi_table_fields')->insert($chunk->toArray());
+                        }
+                        //UploadRecordsIntoMultiTable::dispatch($bulkData);
                     }
 
                     $bulkData = [];
@@ -143,7 +150,14 @@ class ProcessUploadedFileInChunks implements ShouldQueue
             $job = new UploadRecordsIntoMultiTable($bulkData);
             $job->handle();
         } else {
-            UploadRecordsIntoMultiTable::dispatch($bulkData);
+
+            $insert_data = collect($bulkData);
+            $chunks = $insert_data->chunk(500);
+            foreach ($chunks as $chunk) {
+                DB::table('multi_table_fields')->insert($chunk->toArray());
+            }
+
+            //UploadRecordsIntoMultiTable::dispatch($bulkData);
         }
         $bulkData = [];
         if ($this->to >= $this->csvTotLines) {

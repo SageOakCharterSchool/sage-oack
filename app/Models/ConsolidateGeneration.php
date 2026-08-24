@@ -4,6 +4,12 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use LaracraftTech\LaravelDynamicModel\DynamicModel;
+use LaracraftTech\LaravelDynamicModel\DynamicModelFactory;
+use Illuminate\Support\Facades\Schema;
+use App\Helpers\LogActivity;
+use Illuminate\Support\Facades\Log;
+
 
 class ConsolidateGeneration extends Model
 {
@@ -48,5 +54,17 @@ class ConsolidateGeneration extends Model
     }
 
 
+    protected function resetTablesInfo() {
+        LogActivity::addToLog('reset consolidated info');
+        $cycle =  Cycle::getCurrentCycle();
+        $tempTableName = "consolidated_cycle_" . $cycle->id;
+        if (Schema::hasTable($tempTableName)) {
+            Log::info("Table exists ready to reset " . $tempTableName);
+            $tempTableModel = app(DynamicModelFactory::class)->create(DynamicModel::class, $tempTableName);
+            $tempTableModel->delete();
+        }
+        $this->markGenerationAsInProcess(1);
+        Log::info("Reset done " . $tempTableName);
+    }
 
 }

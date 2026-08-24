@@ -1,6 +1,8 @@
 <?php
 
 use App\Http\Controllers\Admin\ChrometrackingController;
+use App\Http\Controllers\Admin\EquivalenceController;
+use App\Http\Controllers\Admin\ConsolidateColorController;
 use App\Http\Controllers\Admin\ReportController;
 use App\Http\Controllers\BuildReportController;
 use App\Http\Controllers\Admin\TablesFieldsDefinitionController;
@@ -18,6 +20,11 @@ use App\Http\Controllers\ImpersonateController;
 use App\Http\Controllers\ConsolidateMappingController;
 use App\Http\Controllers\FormulaController;
 use App\Http\Controllers\SpecialistStudentController;
+use App\Http\Controllers\Admin\SectionController;
+use App\Http\Controllers\Admin\ResourceController;
+use App\Http\Controllers\Auth\LoginController;
+use App\Models\SpecialistStudent;
+use Laravel\Socialite\Facades\Socialite;
 
 /*
 |--------------------------------------------------------------------------
@@ -38,11 +45,32 @@ use App\Http\Controllers\SpecialistStudentController;
     //        fclose($fp);
     //        echo "==========<br>".($sql->sql);$x = print_r($sql->bindings, true);echo "<pre>$x</pre>";
 });
-\DB::connection()->enableQueryLog();
+//\DB::connection()->enableQueryLog();
 Route::get('/', function () {
     return view('welcome');
 });
 
+Route::post('/login-me-in', [LoginController::class, 'loginMeIn'])->name('login-me-in');
+
+Route::get('/google-auth/redirect', function () {
+    return Socialite::driver('google')->redirect();
+
+});
+
+Route::get('/google-auth/callback', function () {
+$userGoogle = Socialite::driver('google')->stateless()->user();
+
+$user = User::checkSSO($userGoogle);
+
+//dd($user,$userGoogle);
+if ($user) {
+    \Auth::login($user);
+    return redirect("/admin/dashboard");
+} else {
+    return redirect("/");
+}
+// $user->token
+});
 //Auth::routes(['register' => true]);
 Auth::routes();
 $users = User::all();
@@ -66,6 +94,7 @@ Route::prefix('admin')->middleware(['auth','blockIP'])->group(function() {
 });
 Route::prefix('admin')->middleware(['auth','isAdmin','blockIP'])->group(function() {
 
+    Route::get('test-Formulas', [TestController::class, 'testFormulas'])->middleware('auth','isAdmin');
     Route::get('test-Me', [TestController::class, 'testMe'])->middleware('auth','isAdmin');
     Route::get('dashboard', [App\Http\Controllers\Admin\DashboardController::class, 'index']);
 
@@ -80,13 +109,17 @@ Route::prefix('admin')->middleware(['auth','isAdmin','blockIP'])->group(function
     // Tables Definition
     Route::controller(TablesDefinitionController::class)->group(function() {
         Route::get('/table-def','index');
-        // Route::get('/table-def/create','create');
+        Route::get('/table-def/create','create');
         Route::get('/table-def/build-formulas/{tableId}','buildFormulas');
         Route::post('/table-def/build-formulas-store/{tableId}','buildFormulasStore');
         Route::get('/table-def/clone-tables','cloneTables');
         Route::post('/table-def/clone-tables-store','cloneTablesStore');
+        Route::post('/table-def/reset-tables-info','resetTablesInfo');
+        Route::post('/table-def/reset-consolidated','resetConsolidated');
+        Route::post('/table-def/reset-error-table','resetErrorTable');
         Route::post('/table-def/store','store');
         Route::post('/table-def/upload','uploadFiles');
+        Route::get('/table-def/edit/{id}','edit');
         Route::get('/table-def/{tablefield}/edit','edit');
         Route::put('/table-def/{tablefield}','update');
         Route::post('/table-def/get-last-mapping','getLastMapping');
@@ -132,18 +165,31 @@ Route::prefix('admin')->middleware(['auth','isAdmin','blockIP'])->group(function
     // Consolidate Mapping
     Route::resource('consolidate-mappings', ConsolidateMappingController::class);
     Route::get('/submit-consolidated-generation',[ConsolidateMappingController::class, 'consolidatedGeneration']);
-    Route::get('/consolidate-view/{cycle_id?}',[ConsolidateMappingController::class, 'consolidatedView'])->name('consolidate-view');
-    Route::get('/consolidate-view-csv/{cycle_id?}',[ConsolidateMappingController::class, 'consolidatedViewCSV'])->name('consolidate-view-csv');
-    Route::post('/consolidate-view/{cycle_id?}',[ConsolidateMappingController::class, 'consolidatedView'])->name('consolidate-search');
+    Route::get('/consolidate-view/{cycle_id?}/{sectionId?}',[ConsolidateMappingController::class, 'consolidatedView'])->name('consolidate-view');
+    Route::get('/consolidate-view-csv/{cycle_id}/{sectionId?}',[ConsolidateMappingController::class, 'consolidatedViewCSV'])->name('consolidate-view-csv');
+    Route::get('/consolidate-view-excel/{cycle_id}/{sectionId?}',[ConsolidateMappingController::class, 'consolidatedViewExcel'])->name('consolidate-view-excel');
+    Route::post('/consolidate-view/{cycle_id?}/{sectionId?}',[ConsolidateMappingController::class, 'consolidatedView'])->name('consolidate-search');
 
     // Formulas
     Route::resource('formulas', FormulaController::class);
 
     // Reports
     Route::resource('build-reports', BuildReportController::class);
+    Route::post('/build-reports/update-permissions',[BuildReportController::class, 'updatePermissions'])->name('update-permissions');
 
     // Specialists
     Route::resource('specialist-students', SpecialistStudentController::class);
+    Route::get('specialist_students_upload_file',[SpecialistStudentController::class, 'uploadFile'])->name('specialist-students-upload-file');
+    Route::post('specialist_students_process_upload_file',[SpecialistStudentController::class, 'processUploadFile'])->name('specialist-students-process-upload-file');
+    // Sections
+    Route::resource('sections', SectionController::class);
+    // Equivalences
+    Route::resource('equivalences', EquivalenceController::class);
+    // Consolidate Colors
+    Route::resource('consolidate-colors', ConsolidateColorController::class);
+    Route::get('/consolidate-colors/create/{column?}', [ConsolidateColorController::class,'create']);
+    // Sections
+    Route::resource('resources', ResourceController::class);
     //
     Route::get('dashboard', [App\Http\Controllers\Admin\DashboardController::class, 'index']);
     // Route::get("/no-reports", [ReportController::class,'showErrors']);
@@ -171,8 +217,11 @@ Route::prefix('admin')->middleware(['auth','blockIP'])->group(function() {
     //Route::get("/reports", [ReportController::class,'index']);
     Route::match(['GET','POST'],"/view-students", [ReportController::class,'ListStudents']);
     Route::get("/view-students", [ReportController::class,'ListStudents']);
-    Route::get("/view-report/{id}/{cycle?}", [ReportController::class,'ViewReport']);
+    Route::get("/view-report/{reportId}/{id}/{cycle?}", [ReportController::class,'ViewReport']);
     Route::get("/chrome-tracking", [ChrometrackingController::class,'index']);
+    Route::get("/upload-tracking-info", [ChrometrackingController::class,'uploadTracking']);
+    Route::post("/process-upload-tracking", [ChrometrackingController::class,'processUploadTracking']);
+    Route::get("/view-students/analize-student/{student_id}", [ReportController::class,'analizeStudents']);
 
 
 });

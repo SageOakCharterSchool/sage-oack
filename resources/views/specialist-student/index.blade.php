@@ -20,12 +20,15 @@
                                 <a href="{{ route('specialist-students.create') }}" class="btn btn-primary btn-sm float-right"  data-placement="left">
                                   {{ __('Create New') }}
                                 </a>
+                                <a href="{{ route('specialist-students-upload-file') }}" class="btn btn-warning btn-sm float-right"  data-placement="left">
+                                  {{ __('Upload File') }}
+                                </a>
                               </div>
                         </div>
                     </div>
                     @if ($message = Session::get('success'))
                         <div class="alert alert-success m-4">
-                            <p>{{ $message }}</p>
+                            <p>{!! nl2br($message) !!}</p>
                         </div>
                     @endif
 
@@ -37,22 +40,47 @@
                                         <th>No</th>
 
 									<th >Specialist Id</th>
+									<th >Specialist Name</th>
+									<th >Specialist Email</th>
+									<th >Student Id</th>
 									<th >First Name</th>
 									<th >Last Name</th>
-									<th >Email</th>
 
                                         <th></th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     @foreach ($specialistStudents as $specialistStudent)
-                                        <tr>
-                                            <td>{{ ++$i }}</td>
+                                        @if ($specialistStudent->student_id == "")
+                                            @continue;
+                                        @endif
+                                        @php
+                                            if ($specialistStudent->student_id) {
+                                                $studentInfo = \App\Models\StudentAccounts::where('cycle_id',$cycle->id)
+                                                                    ->where('student_id',$specialistStudent->student_id)
+                                                                    ->first();
 
+                                            } else {
+                                                $studentInfo = null;
+                                            }
+                                        @endphp
+                                        <tr>
+
+
+                                        <td>{{ $specialistStudent->id }}</td>
 										<td >{{ $specialistStudent->specialist_id }}</td>
-										<td >{{ $specialistStudent->first_name }}</td>
-										<td >{{ $specialistStudent->last_name }}</td>
+										<td >{{ $specialistStudent->name }}</td>
 										<td >{{ $specialistStudent->email }}</td>
+
+                                        @if ($studentInfo)
+										<td >{{ $studentInfo->student_id ?? "" }}</td>
+
+                                        @else
+                                        <td>&nbsp;</td>
+                                        <td>&nbsp;</td>
+                                        @endif
+                                        <td >{{ $specialistStudent->first_name }}</td>
+										<td >{{ $specialistStudent->last_name }}</td>
 
                                             <td>
                                                 <form action="{{ route('specialist-students.destroy', $specialistStudent->id) }}" method="POST">
@@ -70,7 +98,7 @@
                         </div>
                     </div>
                 </div>
-                {!! $specialistStudents->withQueryString()->links() !!}
+                {!! $specialistStudents->withQueryString()->links('pagination::simple-bootstrap-5') !!}
             </div>
         </div>
     </div>

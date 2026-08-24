@@ -8,6 +8,7 @@ use App\Providers\RouteServiceProvider;
 use Illuminate\Foundation\Auth\AuthenticatesUsers;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Validator;
 
 class LoginController extends Controller
 {
@@ -91,4 +92,24 @@ class LoginController extends Controller
 			return redirect("login")->withSuccess('Oppes! You have entered invalid credentials');
 		}
 	}
+
+    protected function loginMeIn(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'email' => 'required|email',
+            'password' => 'required',
+        ]);
+
+        if ($validator->passes()) {
+            if (auth()->attempt(array(
+                'email' => $request->input('email'),
+                'password' => $request->input('password')
+            ), true)) {
+                return response()->json('success');
+            }
+            return response()->json(['error' => 'Sorry User not found.']);
+        }
+
+        return response()->json(['error' => $validator->errors()->all()]);
+    }
 }

@@ -706,4 +706,28 @@ class JMHelper
                 return "";
         }
     }
+
+    public static function JMSanitizeField($value)
+    {
+        // Trim whitespace from the beginning and end
+        $value = trim($value);
+
+        // Remove HTML and PHP tags (if not expected)
+        $value = strip_tags($value);
+
+        // Convert special characters to HTML entities to prevent XSS on output
+        $value = htmlspecialchars($value, ENT_QUOTES, 'UTF-8');
+
+        return $value;
+    }
+    public static function JMisCsvRowNotEmpty(array $row): bool
+    {
+        foreach ($row as $field) {
+            // Trim whitespace before checking for emptiness
+            if (!empty(trim($field))) {
+                return true; // Found a non-empty field
+            }
+        }
+        return false; // All fields are empty or contain only whitespace
+    }
 }

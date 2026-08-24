@@ -12,6 +12,7 @@ use App\Models\Cycle;
 use Illuminate\Support\Facades\Auth;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Schema;
 
 class MultiTableFields extends Model
 {
@@ -39,9 +40,14 @@ class MultiTableFields extends Model
     protected function removeRecordsForTableThisCycle($cycleId, $tableId)
     {
         //dd($cycleId,$tableId);
-        $result = MultiTableFields::where("cycle_id", $cycleId)
-            ->where("table_id", $tableId)
-            ->delete();
+        $loops = 1;
+        do {
+            $result = MultiTableFields::where("cycle_id", $cycleId)
+                ->where("table_id", $tableId)
+                ->limit(1000)
+                ->delete();
+            Log::info("Deleting Multitables Table Id: " . $tableId . " chunk of 1000 " . ($loops++ * $result));
+        } while ($result > 0);
     }
 
     protected function loadDataIntoFile($request)
@@ -54,13 +60,13 @@ class MultiTableFields extends Model
         if ($cycle) {
             $tableName = $request->table_name;
             $tableId = (int)$request->table_id;
-            $this->removeRecordsForTableThisCycle($cycle->id, $tableId);
-            if (getenv("DISPATCH_JOBS") == 0) {
-                $job = new DeleteMultiTableFieldsRecords($cycle->id, $tableId);
-                $job->handle();
-            } else {
-                DeleteMultiTableFieldsRecords::dispatch($cycle->id, $tableId);
-            }
+            //$this->removeRecordsForTableThisCycle($cycle->id, $tableId);
+            // if (getenv("DISPATCH_JOBS") == 0) {
+            //     $job = new DeleteMultiTableFieldsRecords($cycle->id, $tableId);
+            //     $job->handle();
+            // } else {
+            //     DeleteMultiTableFieldsRecords::dispatch($cycle->id, $tableId);
+            // }
             $table = MasterTables::getTableId('teacher_students');
             if ($tableId == $table->id) { // Table Teacher_Student
                 TeacherStudent::removeRecordsOnCurrentCycle($cycle);
@@ -108,22 +114,48 @@ class MultiTableFields extends Model
                     $rowNumber++;
                 }
 
-                for ($i = 0; $i <= ($csvTotLines / 2000); $i++) {
-                    $from = $i * 2000;
-                    if (($from + 1999) > $csvTotLines) {
+                for ($i = 0; $i <= ($csvTotLines / 20000); $i++) {
+                    $from = $i * 20000;
+                    if (($from + 19999) > $csvTotLines) {
                         $to = $csvTotLines;
                     } else {
-                        $to = $from + 1999;
+                        $to = $from + 19999;
                         if ($to > $csvTotLines) {
                             $to = $csvTotLines;
                         }
                     }
-                    if (getenv("DISPATCH_JOBS") == 0) {
-                        $job = new ProcessUploadedFileInChunks($dataFinal, $cycle->id, $tableId, $i, $from, $to, $fieldsForThisTable, \Auth::user()->id, $csvTotLines, $tableName);
-                        $job->handle();
-                    } else {
-                        ProcessUploadedFileInChunks::dispatch($dataFinal, $cycle->id, $tableId, $i, $from, $to, $fieldsForThisTable, \Auth::user()->id, $csvTotLines, $tableName);
-                    }
+                    // if (getenv("DISPATCH_JOBS") == 0) {
+                    //     $job = new ProcessUploadedFileInChunks($dataFinal, $cycle->id, $tableId, $i, $from, $to, $fieldsForThisTable, \Auth::user()->id, $csvTotLines, $tableName);
+                    //     $job->handle();
+                    // } else {
+                        $dataToSend = [
+                            'dataFinal' => $dataFinal,
+                            'cycle' => $cycle->id,
+                            'tableId' => $tableId,
+                            'i' => $i,
+                            'from' => $from,
+                            'to' => $to,
+                            'fieldsForThisTable' => $fieldsForThisTable,
+                            'user' => \Auth::user()->id,
+                            'csvTotLines' => $csvTotLines,
+                            'tableName' => $tableName
+                        ];
+                        $cycle = Cycle::getCurrentCycle();
+                        $data = [
+                            'cycle_id' => $cycle->id,
+                            'section_id' => null,
+                            'student_id' => null,
+                            'report_id' => null,
+                            'created_by' => \Auth::user()->id,
+                            'status' => 1,
+                            'started_at' => null,
+                            'completed_at' => null,
+                            'job_type' => 3,
+                            'payload' => json_encode($dataToSend)
+                        ];
+                        BatchReports::create($data);
+                        //ProcessUploadedFileInChunks::dispatch($dataFinal, $cycle->id, $tableId, $i, $from, $to, $fieldsForThisTable, \Auth::user()->id, $csvTotLines, $tableName);
+                    //}
                 }
                 $dataLog = [
                     'cycle_id' => $cycle->id,
@@ -153,5 +185,36 @@ class MultiTableFields extends Model
             //dd(\DB::getQueryLog());
             //dd($rows);
         return $rows;
+    }
+
+    protected function backupTableWithNewCycle($oldCycle=null, $newCycle=null) {
+        set_time_limit(0);
+        ini_set('memory_limit','-1');
+        if (!$oldCycle) {
+            die("No old cycle provided");
+        }
+        if (!$newCycle) {
+            die("No new cycle provided");
+        }
+        $backupTableName = "multi_table_fields_" . $oldCycle;
+        if (!Schema::hasTable($backupTableName)) { // make sure table does not exists already
+            // creates table structure
+            $db = \DB::connection();
+            $sql = 'CREATE TABLE ' . $backupTableName . ' LIKE ' . $this->table;
+            $db->statement($sql);
+            Log::info($sql . " executed ");
+            echo $sql . "\r\n";
+            //inserts table data
+            $sql = 'INSERT IGNORE INTO ' . $backupTableName . ' SELECT * FROM ' . $this->table . ' where cycle_id = ' . $oldCycle;
+            $db->statement($sql);
+            Log::info($sql . " executed ");
+            echo $sql . "\r\n";
+            // Add addtional column if you watch
+            $this->where('cycle_id', $oldCycle)->delete();
+            die("Duplicate Table $backupTableName completed");
+        } else {
+            die("Table $backupTableName already exists");
+        }
+
     }
 }

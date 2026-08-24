@@ -15,6 +15,12 @@
                 </a>
             </li>
         @endif
+        <li class="nav-item">
+            <a class="nav-link" href="/admin/resources">
+                <i class="mdi mdi-play-network menu-icon"></i>
+                <span class="menu-title">Resources</span>
+            </a>
+          </li>
         @if (\App\Models\UsersEnabledToImpersonate::checkIfUserHasImpersonatePermissions(\Auth::user()->id))
         <li class="nav-item">
             <a class="nav-link" href="/admin/user">

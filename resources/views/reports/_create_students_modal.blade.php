@@ -40,7 +40,7 @@
                 </div>
                 <div class="mb-3">
                     <label for="student_password" class="form-label">Student Password</label>
-                        <input type="text" class="form-control createStudentValidation" id="student_password" maxlength="8"
+                        <input type="text" class="form-control createStudentValidation" id="student_password" maxlength="20"
                             placeholder="Enter Password">
                 </div>
                 <div class="mb-3">

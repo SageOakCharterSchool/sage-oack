@@ -13,11 +13,16 @@ $(".protectMeShort").click(function() {
     $('#bugModal').modal('show')
 }
 function closeModalAndCreateBug() {
+    var myRadio = $("input[name=bug_type]");
+    var myRadioValue = myRadio.filter(":checked").val();
     $.ajax({
         url: '/bug',
         type: 'POST',
         data: {
             feedback: $("#feedback").val(),
+            url: $("#url").val(),
+            bug_type: myRadioValue,
+            reporter_email: $("#reporter_email").val(),
             _token: $("#_token").val(),
         },
         dataType: "text",

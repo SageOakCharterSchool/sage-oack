@@ -153,13 +153,13 @@ class UploadRecordsStudentAccounts implements ShouldQueue
                     'updated_at' => Carbon::now(),
                 ];
                 $bulkData[] = $tmpData;
-                Log::info($tmpData);
+                //Log::info($tmpData);
             }
 
 
             if (count($bulkData) >= 300) {
                 foreach (array_chunk($bulkData, 100) as $t) {
-                    Log::info($t);
+                    //Log::info($t);
                     StudentAccounts::insert($t);
                 };
                 $bulkData = [];

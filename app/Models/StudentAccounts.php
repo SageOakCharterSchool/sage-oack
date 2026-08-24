@@ -40,6 +40,8 @@ class StudentAccounts extends Model
         'column_h', // Program
         'column_i', // SIS
         'column_j',
+        'column_k', // chrome tracking number
+        'column_l',
         'created_by',
     ];
 

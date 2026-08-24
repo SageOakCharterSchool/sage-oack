@@ -11,9 +11,13 @@ use App\Models\Cycle;
 use App\Models\FileUploads;
 use App\Models\Formula;
 use App\Models\GlobalActions;
+use App\Models\MasterTables;
+use App\Models\MultiTableFields;
 use App\Models\Report;
+use App\Models\ReportPermission;
 use App\Models\SpecialistStudent;
 use App\Models\StudentList;
+use App\Models\TablesMapping;
 use App\Models\TeacherStudent;
 use PDF;
 use LaracraftTech\LaravelDynamicModel\DynamicModel;
@@ -353,11 +357,11 @@ class ReportController extends Controller
         $cycle =  Cycle::getCurrentCycle();
         $teacherId = TeacherStudent::getIdFromEmail();
         $myStudents = TeacherStudent::getAllTeacherStudents($teacherId, $request);
+        //dd($myStudents);
         $mySpecialistStudents = [];
         if (\Auth::user()->isSpecialist()) {
             $specialistId = SpecialistStudent::getIdFromEmail();
             $mySpecialistStudents = SpecialistStudent::getAllSpecialistStudents($specialistId, $request);
-
         }
         $teachersAvailable = TeacherStudent::select('teacher_id', 'first_name', 'last_name')
             ->where('cycle_id', $cycle->id)
@@ -372,11 +376,16 @@ class ReportController extends Controller
         return view('reports/list-my-students', compact('myStudents', 'mySpecialistStudents', 'teachersAvailable','specialistAvailable','cycle'));
     }
 
-    public function ViewReport($studentId,$overrideCycle)
+    public function ViewReport($reportId, $studentId,$overrideCycle)
     {
+        $isThisReportAuthorized = true;
         $cycles = Cycle::getAllCycles();
         if (!\Auth::user()->isAdmin()) {
             $overrideCycle = null;
+            $isThisReportAuthorized = ReportPermission::evaluatePermissions($reportId);
+        }
+        if (!$isThisReportAuthorized) {
+            return redirect('admin/consolidate-view')->with('error_message','Seems the report selected does not exist');
         }
         if (!$overrideCycle) {
             $cycle = Cycle::getCurrentCycle();
@@ -386,7 +395,12 @@ class ReportController extends Controller
         $tempTableName = "consolidated_cycle_" . $cycle->id;
         $tempTableModel = app(DynamicModelFactory::class)->create(DynamicModel::class, $tempTableName);
         $consolidatedRow = $tempTableModel->where("student_id", $studentId)->first();
-        $report = Report::where('cycle_id', $cycle->id)->first();
+        $report = Report::where('cycle_id', $cycle->id)
+                        ->where('id',$reportId)
+                        ->first();
+        if (!$report) {
+            return redirect('admin/consolidate-view')->with('error_message','Seems the report selected does not exist');
+        }
         $tmpVariables = ConsolidateMapping::getOnlyConsolidatedTableFields();
         $siteVariables = [];
         foreach ($tmpVariables as $row) {
@@ -421,5 +435,51 @@ class ReportController extends Controller
             return $pdf->download('pdf_file_' . time() . '.pdf');
         }
         return view('reports/individual-report', compact('html','isConsolidated', 'url', 'isPDF','cycles'));
+    }
+
+    public function analizeStudents($studentId) {
+        if (!\Auth::user()->isAdmin()) {
+            return redirect('/admin/view-students')->with('error_message','Seems the report selected does not exist');
+
+        }
+
+        $cycle = Cycle::getCurrentCycle();
+        $tempTableName = "consolidated_cycle_" . $cycle->id;
+        $tempTableModel = app(DynamicModelFactory::class)->create(DynamicModel::class, $tempTableName);
+        $consolidatedRow = $tempTableModel->where("student_id", $studentId)->first();
+        $mappingFfields = ConsolidateMapping::where("cycle_id", $cycle->id)->orderBy('screen_sort')->get();
+        $formulas = Formula::where("cycle_id", $cycle->id)->get()->keyBy('id');
+
+        $tables = MasterTables::where('cycle_id',$cycle->id)
+                //->where('id',138)
+                ->get();
+        $recors=[];
+        $tableFields = [];
+        foreach ($tables as $table) {
+            $fields = TablesMapping::where('cycle_id',$cycle->id)
+                ->where('table_id',$table->id)
+                ->get();
+            foreach ($fields as $field) {
+                $tableFields[$table->id][$field->column] = $field->column_title;
+            }
+            $rows = MultiTableFields::where('cycle_id',$cycle->id)
+                    ->where('table_id',$table->id)
+                    ->where('student_id',$studentId)
+                    ->get();
+            if ($rows->count()) {
+                foreach ($rows as $row) {
+                    $records[$table->id][] = $row;
+                    //dd($row,$records);
+                }
+            } else {
+                $records[$table->id] = [];
+            }
+        }
+        //dd($records);
+        //dd($consolidatedRow);
+        //dd($fields);
+        //dd($tableFields);
+        return view('reports/analize-student', compact('tables','records','tableFields','consolidatedRow','mappingFfields','formulas'));
+
     }
 }

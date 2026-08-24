@@ -64,7 +64,10 @@ class TeacherStudent extends Model
 
     protected function getIdFromEmail() {
         $email = \Auth::user()->email;
-        $teacherStudent = $this->where("email",$email)->first();
+        $cycle = Cycle::getCurrentCycle();
+        $teacherStudent = $this->where('cycle_id',$cycle->id)
+                            ->where("email",$email)
+                            ->first();
         if ($teacherStudent) {
             return $teacherStudent->teacher_id;
         }
@@ -100,6 +103,8 @@ class TeacherStudent extends Model
     protected function getAllTeacherStudents($teacherId,$request) {
         //dd($request->all(),$request->search);
         $cycle = Cycle::getCurrentCycle();
+        //\DB::connection()->enableQueryLog();
+        //dd($cycle,$request->all());
         if (!$cycle) {
             return;
         }
@@ -111,13 +116,25 @@ class TeacherStudent extends Model
                         $join->on('teacher_students.student_id','=','st_ac.student_id');
                         $join->on('teacher_students.cycle_id','=','st_ac.cycle_id');
                     })
-                ->whereNotNull('st_ac.student_id')
+                ->where('st_ac.cycle_id',$cycle->id)
                 ->where('teacher_students.cycle_id',$cycle->id)
-                ->where('st_ac.student_id','like','%'.$request->search.'%')
-                    ->orWhere('st_ac.column_a','like','%'.$request->search.'%')
-                    ->orWhere('st_ac.column_b','like','%'.$request->search.'%')
+                ->whereNotNull('st_ac.student_id')
+                ->where('st_ac.student_id',"!=","")
+                ->where('teacher_students.student_id',"!=","")
+                ->whereNotNull('teacher_students.student_id')
+                ->where(
+                    function($query) use($request) {
+                        return $query
+                                ->where('st_ac.student_id','like','%'.$request->search.'%')
+                                ->orWhere('st_ac.column_a','like','%'.$request->search.'%')
+                                ->orWhere('st_ac.column_b','like','%'.$request->search.'%')
+                                ->orWhere('st_ac.column_e','like','%'.$request->search.'%')
+                                ->orWhere('st_ac.column_f','like','%'.$request->search.'%')
+                                ->orWhere('st_ac.column_g','like','%'.$request->search.'%');
+                        })
                 ->orderBy('st_ac.column_b')
                 ->paginate(50);
+                //dd(\DB::getQueryLog());
                 //dd($myStudents);
             } else {
 
@@ -126,8 +143,12 @@ class TeacherStudent extends Model
                     $join->on('teacher_students.student_id','=','st_ac.student_id');
                     $join->on('teacher_students.cycle_id','=','st_ac.cycle_id');
                 })
+                ->where('st_ac.cycle_id',$cycle->id)
                 ->where('teacher_students.cycle_id',$cycle->id)
                 ->whereNotNull('st_ac.student_id')
+                ->where('st_ac.student_id',"!=","")
+                ->where('teacher_students.student_id',"!=","")
+                ->whereNotNull('teacher_students.student_id')
                 ->orderBy('st_ac.column_b')
                 ->paginate(50);
             }
@@ -140,13 +161,20 @@ class TeacherStudent extends Model
                     $join->on('teacher_students.cycle_id','=','st_ac.cycle_id');
                 })
                 ->whereNotNull('st_ac.student_id')
+                ->where('st_ac.student_id',"!=","")
+                ->where('teacher_students.student_id',"!=","")
+                ->whereNotNull('teacher_students.student_id')
                 ->where('teacher_students.teacher_id',$teacherId)
+                ->where('st_ac.cycle_id',$cycle->id)
                 ->where('teacher_students.cycle_id',$cycle->id)
                         ->where(function($query) use($request)
                         {
                             $query->where('st_ac.student_id','like','%'.$request->search.'%')
                             ->orWhere('st_ac.column_a','like','%'.$request->search.'%')
-                            ->orWhere('st_ac.column_b','like','%'.$request->search.'%');
+                            ->orWhere('st_ac.column_e','like','%'.$request->search.'%')
+                            ->orWhere('st_ac.column_f','like','%'.$request->search.'%')
+                            ->orWhere('st_ac.column_g','like','%'.$request->search.'%')
+                            ->orWhere('teacher_students.column_b','like','%'.$request->search.'%');
                         })
                         ->orderBy('st_ac.column_b')
                         ->paginate(50);
@@ -157,7 +185,11 @@ class TeacherStudent extends Model
                     $join->on('teacher_students.cycle_id','=','st_ac.cycle_id');
                 })
                 ->whereNotNull('st_ac.student_id')
+                ->where('st_ac.student_id',"!=","")
+                ->where('teacher_students.student_id',"!=","")
+                ->whereNotNull('teacher_students.student_id')
                 ->where('teacher_students.teacher_id',$teacherId)
+                ->where('st_ac.cycle_id',$cycle->id)
                 ->where('teacher_students.cycle_id',$cycle->id)
                 ->orderBy('st_ac.column_b')
                 //->toSql();
@@ -583,6 +615,8 @@ class TeacherStudent extends Model
             $cycle = Cycle::getCurrentCycle();
             $cycleId = $cycle->id;
         }
+        $time1 = time();
+        Log::info("Reassign teachers start ");
         set_time_limit(0);
         ini_set('memory_limit','-1');
         $table = MasterTables::getTableId('teacher_students');
@@ -598,27 +632,62 @@ class TeacherStudent extends Model
         //dd($table);
         $tempTableName = "consolidated_cycle_" . $cycleId;
         $tempTableModel = app(DynamicModelFactory::class)->create(DynamicModel::class, $tempTableName);
-
-        $teacherRows = MultiTableFields::select('teacher_id', 'student_id')
+        Log::info("Query Grouping TeacherStudent start " . date("Y-m-d H:i:s"));
+        $teacherRows = TeacherStudent::select('teacher_id', 'student_id')
             ->where('cycle_id', $cycleId)
-            ->where("table_id", $id1)
+            ->groupBy('teacher_id','student_id')
+            ->get();
+        Log::info("Query Grouping TeacherStudent completed " . date("Y-m-d H:i:s"));
+        $i = 0;
+        $z = count($teacherRows);
+        foreach ($teacherRows as $teacherRow) {
+            if ($i % 1000 == 0) {
+                Log::info("Query Updating MultiTableFields Teacher Id " . $i . " of " . $z . " " . date("Y-m-d H:i:s"));
+            }
+            $i++;
+            // MultiTableFields::where('cycle_id', $cycleId)
+            //     ->whereNotIn("table_id", $tablesToSkip)
+            //     ->where("student_id", $teacherRow->student_id)
+            //     ->where("teacher_id", 0)
+            //     ->update([
+            //         'teacher_id' => $teacherRow->teacher_id
+            //     ]);
+
+            //Log::info("Query Updating MultiTableFields completed Teacher Id " . date("Y-m-d H:i:s"));
+            $tempTableModel->where("student_id", $teacherRow->student_id)
+                        ->where("teacher_id", 0)
+                            ->update([
+                                'teacher_id' => $teacherRow->teacher_id
+                            ]);
+            //Log::info("Query Updating " . $tempTableName . " Teacher Id " . date("Y-m-d H:i:s"));
+        }
+        $time2 = time();
+        Log::info("Reassign teachers completed " . ($time2 - $time1) . "ms");
+    }
+
+    protected function assignTeachersToStudents() {
+        $table = MasterTables::getTableId('teacher_students');
+        $id1 = $table->id;
+        $table = MasterTables::getTableId('tutor');
+        $id2 = $table->id;
+        $tablesToSkip = [$id1, $id2];
+
+        $cycle = Cycle::getCurrentCycle();
+        $cycleId = $cycle->id;
+
+        $teacherRows = TeacherStudent::select('teacher_id', 'student_id')
+            ->where('cycle_id', $cycle->id)
             ->groupBy('teacher_id','student_id')
             ->get();
         foreach ($teacherRows as $teacherRow) {
-            MultiTableFields::where('cycle_id', $cycleId)
+            MultiTableFields::where('cycle_id', $cycle->id)
                 ->whereNotIn("table_id", $tablesToSkip)
                 ->where("student_id", $teacherRow->student_id)
                 ->where("teacher_id", 0)
                 ->update([
                     'teacher_id' => $teacherRow->teacher_id
                 ]);
-            $tempTableModel->where("student_id", $teacherRow->student_id)
-                        ->where("teacher_id", 0)
-                            ->update([
-                                'teacher_id' => $teacherRow->teacher_id
-                            ]);
         }
     }
-
 
 }

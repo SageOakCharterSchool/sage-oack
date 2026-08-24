@@ -20,7 +20,7 @@
     <link rel="stylesheet" href="{{ asset('admin/css/style.css') }}">
     <link rel="stylesheet" href="{{ asset('admin/css/custom.css') }}">
     {{-- filepond --}}
-    <script src="https://unpkg.com/filepond@^4/dist/filepond.js"></script>
+    {{-- <script src="https://unpkg.com/filepond@^4/dist/filepond.js"></script> --}}
     <!-- endinject -->
     <link rel="shortcut icon" href="{{ asset('admin/images/favicon.png') }}" />
     @livewireStyles
@@ -65,7 +65,7 @@
     <script src="{{ asset('admin/js/dataTables.bootstrap4.js') }}"></script>
     <script src="{{ asset('admin/js/jquery.blockUI.js') }}"></script>
     {{-- filepond --}}
-    <link href="https://unpkg.com/filepond@^4/dist/filepond.css" rel="stylesheet" />
+    {{-- <link href="https://unpkg.com/filepond@^4/dist/filepond.css" rel="stylesheet" /> --}}
     <script src="https://unpkg.com/sweetalert/dist/sweetalert.min.js"></script>
     <!-- End custom js for this page-->
     {{-- <script src="js/jquery.cookie.js"></script> --}}
@@ -75,5 +75,6 @@
     @stack('script')
     @stack('css')
     @yield('custom_script')
+    @include('layouts.analytics')
 </body>
 </html>

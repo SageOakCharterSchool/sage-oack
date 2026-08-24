@@ -17,12 +17,42 @@
                             </span>
 
                              <div class="float-right">
-                                <a href="{{ route('consolidate-mappings.create') }}" class="btn btn-primary btn-sm float-right"  data-placement="left">
-                                  {{ __('Create New') }}
-                                </a>
-                                <a href="{{ route('consolidate-view') }}" class="btn btn-success btn-sm float-right"  data-placement="left">
-                                  {{ __('View Consolidated') }}
-                                </a>
+
+                                <div class="input-group mb-3 float-right">
+                                    <button class="btn btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">Options</button>
+                                    <ul class="dropdown-menu">
+                                        <li>
+                                            <a href="{{ route('consolidate-mappings.create') }}" class="dropdown-item"  >
+                                                {{ __('Create New') }}
+                                              </a>
+                                        </li>
+                                        <li>
+                                            <a href="{{ route('consolidate-view') }}" class="dropdown-item"  >
+                                                {{ __('View Consolidated') }}
+                                              </a>
+                                        </li>
+                                        <li><hr class="dropdown-divider"></li>
+                                        <li>
+                                            <a href="{{ route('sections.index') }}" class="dropdown-item"  >
+                                                {{ __('View Sections') }}
+                                              </a>
+                                        </li>
+                                        {{-- <li>
+                                            <a href="{{ route('equivalences.index') }}" class="dropdown-item"  >
+                                                {{ __('View Equivalences') }}
+                                              </a>
+                                        </li> --}}
+                                        <li>
+                                            <a href="{{ route('consolidate-colors.index') }}" class="dropdown-item"  >
+                                                {{ __('Consolidate Colors') }}
+                                              </a>
+                                        </li>
+
+
+
+                                    </ul>
+                                  </div>
+
                               </div>
                         </div>
                     </div>
@@ -44,16 +74,18 @@
 
                     <div class="card-body bg-white">
                         <div class="table-responsive">
-                            <table class="table table-striped table-hover">
+                            <table class="table table-striped ">
                                 <thead class="thead">
                                     <tr>
                                         <th>No</th>
 
-									<th style="width: 5%" >Screen Sort</th>
-									<th style="width: 5%" >Column Name</th>
-									<th style="width: 20%">Column Description</th>
-									<th style="width: 20%">Field Source</th>
-									<th style="width: 25%">Formula</th>
+                                        <th style="width: 5%" >Screen Sort</th>
+                                        <th style="width: 5%" >Column Name</th>
+                                        <th style="width: 20%">Column Description</th>
+                                        <th style="width: 20%">Field Source</th>
+                                        <th style="width: 25%">Formula</th>
+                                        <th style="">Color</th>
+                                        <th style="">Section</th>
 
 
                                         <th style="width: 20%"></th>
@@ -64,20 +96,48 @@
                                         <tr>
                                             <td>{{ ++$i }}</td>
 
-										<td >{{ $consolidateMapping->screen_sort }}</td>
-										<td >{{ $consolidateMapping->column_name }}</td>
-										<td >{{ $consolidateMapping->column_description }}</td>
-										<td >{{ \App\Models\ConsolidateMapping::getFieldSource($consolidateMapping->field_source) ?? "" }}</td>
-										<td ><a href="/admin/formulas/{{$consolidateMapping->formula_id}}">{{ \App\Models\Formula::getFormulaName($consolidateMapping->formula_id)->formula_name ?? "" }}</a> </td>
+                                                <td >{{ $consolidateMapping->screen_sort }}</td>
+                                                <td >{{ $consolidateMapping->column_name }}</td>
+                                                <td >{{ $consolidateMapping->column_description }}</td>
+                                                <td >{{ \App\Models\ConsolidateMapping::getFieldSource($consolidateMapping->field_source) ?? "" }}</td>
+                                                <td ><a href="/admin/formulas/{{$consolidateMapping->formula_id}}">{{ \App\Models\Formula::getFormulaName($consolidateMapping->formula_id)->formula_name ?? "" }}</a> </td>
+                                                @php
+                                                    $sectionInfo = \App\Models\Section::getSectionInfo($consolidateMapping->section_id);
+                                                @endphp
+                                                <td style="background-color: {{$sectionInfo->color ?? ''}}">{{$sectionInfo->section ?? ''}}</td>
+                                                <td>
+                                                    @if (isset($consolidateColorContent[$consolidateMapping->column_name]))
+                                                    <div class="btn-group">
+                                                        <button type="button" class="btn btn-warning dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
+                                                          Colors
+                                                        </button>
+                                                        <ul class="dropdown-menu">
+                                                            @foreach ($consolidateColorContent[$consolidateMapping->column_name] as $value => $consolidateColor)
+                                                                <li style="background-color: {{$consolidateColor['background_color']}};"><a class="dropdown-item" href="#" style="color:{{$consolidateColor['color']}}">{{$value}}</a></li>
+                                                            @endforeach
+                                                        </ul>
+                                                      </div>
+                                                    @else
+                                                        &nbsp;
+                                                    @endif
+                                                </td>
+
 
 
                                             <td>
                                                 <form action="{{ route('consolidate-mappings.destroy', $consolidateMapping->id) }}" method="POST">
-                                                    <a class="btn btn-sm btn-primary " href="{{ route('consolidate-mappings.show', $consolidateMapping->id) }}"><i class="fa fa-fw fa-eye"></i> {{ __('Show') }}</a>
-                                                    <a class="btn btn-sm btn-success" href="{{ route('consolidate-mappings.edit', $consolidateMapping->id) }}"><i class="fa fa-fw fa-edit"></i> {{ __('Edit') }}</a>
                                                     @csrf
                                                     @method('DELETE')
-                                                    <button type="submit" class="btn btn-danger btn-sm" onclick="event.preventDefault(); confirm('Are you sure to delete?') ? this.closest('form').submit() : false;"><i class="fa fa-fw fa-trash"></i> {{ __('Delete') }}</button>
+                                                    <div class="input-group mb-3">
+                                                        <button class="btn btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">Options</button>
+                                                        <ul class="dropdown-menu">
+                                                          <li><a class="dropdown-item" href="{{ route('consolidate-mappings.edit', $consolidateMapping->id) }}">{{ __('Edit') }}</a></li>
+                                                          <li><a class="dropdown-item" href="/admin/sections">{{ __('Sections') }}</a></li>
+                                                          <li><a class="dropdown-item" href="/admin/consolidate-colors?column={{$consolidateMapping->column_name }}">{{ __('Colors') }}</a></li>
+                                                          <li><hr class="dropdown-divider"></li>
+                                                          <li><button class="dropdown-item" type="submit" onclick="event.preventDefault(); confirm('Are you sure to delete?') ? this.closest('form').submit() : false;">Delete</button></li>
+                                                        </ul>
+                                                      </div>
                                                 </form>
                                             </td>
                                         </tr>
