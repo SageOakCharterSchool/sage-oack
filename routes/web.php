@@ -25,6 +25,7 @@ use App\Http\Controllers\Admin\ResourceController;
 use App\Http\Controllers\Auth\LoginController;
 use App\Models\SpecialistStudent;
 use Laravel\Socialite\Facades\Socialite;
+use Arcanedev\LogViewer\Http\Controllers\LogViewerController;
 
 /*
 |--------------------------------------------------------------------------
@@ -80,6 +81,8 @@ if ($users->count() >= (float)getenv('MAX_USERS') ) {
     });
 }
 
+
+
 Route::get('/logmeout', [LogoutController::class,'logout'])->name('logmeout');
 
 Route::get('/home', [App\Http\Controllers\HomeController::class, 'index'])
@@ -95,6 +98,7 @@ Route::prefix('admin')->middleware(['auth','blockIP'])->group(function() {
 Route::prefix('admin')->middleware(['auth','isAdmin','blockIP'])->group(function() {
 
     Route::get('test-Formulas', [TestController::class, 'testFormulas'])->middleware('auth','isAdmin');
+    Route::get('/log-viewer', [LogViewerController::class, 'index'])->name('LogViewerController');
     Route::get('test-Me', [TestController::class, 'testMe'])->middleware('auth','isAdmin');
     Route::get('dashboard', [App\Http\Controllers\Admin\DashboardController::class, 'index']);
 

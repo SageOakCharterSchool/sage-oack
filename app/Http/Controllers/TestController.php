@@ -88,14 +88,14 @@ class TestController extends Controller
     }
 
     public function testFormulas() {
-        ConsolidateMapping::calculateFormulasResult();
-       exit;
+        //ConsolidateMapping::calculateFormulasResult();
+       //exit;
         //ConsolidateMapping::buildConsolidated();
         //exit;
         $cycle = Cycle::getCurrentCycle();
-        $formulaId = 159;
+        $formulaId = 375;
 
-        $studentId = 6081670822;
+        $studentId = 1021424916;
 
 
         $formulaInfo = Formula::where("id", $formulaId)->first();
@@ -125,8 +125,8 @@ class TestController extends Controller
                 ->get()
                 ->toArray();
         //dd($data);
-        //dd($formulaInfo,$consolidatedRow[0]);
-        $consolidatedRowToPass[$studentId] = $consolidatedRow[0];
+        //dd($formulaInfo,$consolidatedRow);
+        $consolidatedRowToPass[$studentId] = $consolidatedRow[0] ?? [];
         //dd($consolidatedRowToPass);
         $equivalences = Consolidate3::columnACADEquivalences();
         $result = Formula::formulaParsing($formulaId, $formulaInfo, $studentAccountRecord, $cycle, $data, $consolidatedRowToPass, null,$equivalences);

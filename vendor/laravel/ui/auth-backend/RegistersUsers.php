@@ -6,7 +6,6 @@ use Illuminate\Auth\Events\Registered;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Redirect;
 
 trait RegistersUsers
 {
@@ -34,9 +33,7 @@ trait RegistersUsers
 
         event(new Registered($user = $this->create($request->all())));
 
-        return Redirect::to('/login');
-
-        //$this->guard()->login($user);
+        $this->guard()->login($user);
 
         if ($response = $this->registered($request, $user)) {
             return $response;

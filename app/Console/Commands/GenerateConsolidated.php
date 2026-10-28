@@ -42,7 +42,7 @@ class GenerateConsolidated extends Command
 
         $report = BatchReports::where("status",1)
                     ->where('job_type',2)
-                    ->first();
+                    ->first();                    
         if (!$report) {
             Log::info("NO Consolidate to run... see you");
             return;

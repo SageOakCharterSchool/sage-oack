@@ -20,14 +20,9 @@
         "livewire/livewire": "^2.12",
         "phpoffice/phpspreadsheet": "^1.29",
         "power-components/livewire-powergrid": "^4.8",
-<<<<<<< HEAD
-        "symfony/http-client": "*",
-        "symfony/mailgun-mailer": "*"
-=======
         "symfony/http-client": "^6.3",
         "symfony/mailgun-mailer": "^6.3",
         "laravel/socialite": "^5.18"
->>>>>>> 3119301d7641439f859c062aadb7e9a97e17409a
     },
     "require-dev": {
         "barryvdh/laravel-debugbar": "^3.9",
